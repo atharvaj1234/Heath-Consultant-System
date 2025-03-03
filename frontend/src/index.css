@@ -1,0 +1,14 @@
+@import 'tailwindcss';
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f7f7f7;
+  color: #333;
+}
+
+#root {
+  width: 100vw;
+}
