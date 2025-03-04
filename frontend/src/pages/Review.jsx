@@ -71,16 +71,17 @@ const Review = () => {
   if (!consultant) {
     return <div className="text-center">Consultant not found.</div>;
   }
+   const isLoggedIn = localStorage.getItem('token') !== null;
 
   return (
     <div className="min-h-screen bg-gray-100 p-10">
       {/* Consultant Information */}
       <section className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-8 mb-8">
         <h2 className="text-3xl font-semibold text-gray-800 mb-2">
-          Review for {consultant.specialty}
+          Review for {consultant.consultant.specialty}
         </h2>
         <p className="text-xl text-gray-700">
-          Specialty: {consultant.specialty}
+          Specialty: {consultant.consultant.specialty}
         </p>
       </section>
 
@@ -125,6 +126,7 @@ const Review = () => {
           <button
             type="submit"
             className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-colors duration-300"
+            disabled={!isLoggedIn}
           >
             Submit Review
           </button>

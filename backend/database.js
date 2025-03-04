@@ -148,25 +148,27 @@ async function createTables() {
         }
       );
 
-      db.run(
-        `
-        CREATE TABLE IF NOT EXISTS reviews (
-          id INTEGER PRIMARY KEY,
-          userId INTEGER,
-          consultantId INTEGER,
-          rating INTEGER,
-          review TEXT,
-          FOREIGN KEY (userId) REFERENCES users(id),
-          FOREIGN KEY (consultantId) REFERENCES consultants(id)
-        )
-      `,
-        (err) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-        }
-      );
+db.run(
+  `
+  CREATE TABLE IF NOT EXISTS reviews (
+    id INTEGER PRIMARY KEY,
+    userId INTEGER,
+    consultantId INTEGER,
+    rating INTEGER,
+    review TEXT,
+    bookingId INTEGER, 
+    FOREIGN KEY (userId) REFERENCES users(id),
+    FOREIGN KEY (consultantId) REFERENCES users(id)
+    FOREIGN KEY (bookingId) REFERENCES bookings(id)
+  )
+`,
+  (err) => {
+    if (err) {
+      reject(err);
+      return;
+    }
+  }
+);
       db.run(
         `
         CREATE TABLE IF NOT EXISTS contacts (
@@ -348,6 +350,15 @@ async function seedConsultants() {
             console.log("Consultants table seeded with dummy data.");
             resolve();
           });
+
+          // Add the reviews table data at the end of seedConsultants()
+  db.run(`
+    INSERT INTO reviews (userId, consultantId, rating, review, bookingId) VALUES
+      (4, 6, 5, 'Excellent consultation! Highly recommended.', 1),
+      (4, 7, 4, 'Very helpful and informative session.', 2),
+      (4, 6, 3, 'Good but could be better.', 3);
+    `);
+          
         } else {
           console.log("Consultants table already has data, skipping seeding.");
           resolve();

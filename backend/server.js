@@ -560,31 +560,105 @@ app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
       });
     });
 
-    // Get Consultant by ID (GET)
-    app.get("/api/consultants/:id", (req, res) => {
-      const consultantId = req.params.id;
-      const db = getDb();
+    
 
-      db.get(
-        "SELECT * FROM users WHERE id = ? AND isConsultant = 1",
-        [consultantId],
-        (err, consultant) => {
-          if (err) {
-            return handleDatabaseError(
-              res,
-              err,
-              "Failed to retrieve consultant"
-            );
-          }
+    // Reviews (POST)
+    app.post(
+      "/api/reviews",
+  authenticateToken,
+  [
+    body("consultantId")
+    .notEmpty()
+      .withMessage("Consultant ID is required"),
+      body("rating")
+      .isInt({ min: 1, max: 5 })
+      .withMessage("Rating must be between 1 and 5"),
+      body("review").notEmpty().withMessage("Review text is required"),
+  ],
+  (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
 
-          if (!consultant) {
-            return res.status(404).json({ message: "Consultant not found" });
-          }
-
-          res.json(consultant);
+    const userId = req.user.userId;
+    const { consultantId, rating, review } = req.body;
+    const db = getDb();
+    
+    //Verify user
+    db.get(
+      "SELECT * FROM bookings WHERE userId = ? AND consultantId = ?",
+      [userId, consultantId],
+      function (err, booking) {
+        if (err) {
+          return handleDatabaseError(res, err, "Failed to create review");
         }
-      );
-    });
+        if (!booking) {
+          return res.status(403).json({ message: "You can't post review without an appointment" });
+        }
+       
+
+        db.run(
+          "INSERT INTO reviews (userId, consultantId, rating, review) VALUES (?, ?, ?, ?)",
+          [userId, consultantId, rating, review],
+          function (err) {
+            if (err) {
+              return handleDatabaseError(res, err, "Failed to create review");
+            }
+            
+            const reviewId = this.lastID;
+            res
+              .status(201)
+              .json({ id: reviewId, userId, consultantId, rating, review });
+            }
+        );
+      }
+    );
+  }
+);
+
+// Get Consultant by ID (GET)
+
+app.get("/api/consultants/:id", (req, res) => {
+  const consultantId = req.params.id;
+  const db = getDb();
+
+  db.get(
+    "SELECT * FROM users WHERE id = ? AND isConsultant = 1",
+    [consultantId],
+    (err, consultant) => {
+      if (err) {
+        return handleDatabaseError(
+          res,
+          err,
+          "Failed to retrieve consultant"
+        );
+      }
+
+      if (!consultant) {
+        return res.status(404).json({ message: "Consultant not found" });
+      }
+
+        db.all(
+          "SELECT * FROM reviews WHERE consultantId = ?",
+          [consultantId],
+          (err, reviews) => {
+            if (err) {
+              return handleDatabaseError(
+                res,
+                err,
+                "Failed to retrieve reviews"
+              );
+            }
+            res.json({
+              consultant,
+              reviews
+            });
+          }
+        );
+    }
+  );
+});
 
     // Bookings (GET and POST)
     app.get("/api/bookings", authenticateToken, (req, res) => {
