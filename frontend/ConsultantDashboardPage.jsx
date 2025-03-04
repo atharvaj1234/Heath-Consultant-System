@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { getConsultantBookingsById } from '../utils/api'; // Import the missing function
 import { Calendar } from 'lucide-react';
@@ -8,8 +7,7 @@ const ConsultantDashboardPage = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [consultantId, setConsultantId] = useState(null); // Ensure it's null initially
-  const [isApproved, setIsApproved] = useState(false);
+  const [consultantId, setConsultantId] = useState(null);
 
   useEffect(() => {
     // Function to fetch bookings
@@ -19,12 +17,18 @@ const ConsultantDashboardPage = () => {
       try {
         const token = localStorage.getItem('token');
         const storedConsultantId = localStorage.getItem('userId');
-        const storedIsApproved = localStorage.getItem('isApproved');
+        const userRole = localStorage.getItem('userRole');
 
         if (!token) {
           setError('Authentication required. Please login.');
           return;
         }
+
+        if (userRole !== 'consultant') {
+          setError('You are not authorized to access this page.');
+          return;
+        }
+
 
         // Check if storedConsultantId exists and is a valid number
         if (!storedConsultantId || isNaN(parseInt(storedConsultantId, 10))) {
@@ -34,10 +38,16 @@ const ConsultantDashboardPage = () => {
 
         // Convert storedConsultantId to a number
         const parsedConsultantId = parseInt(storedConsultantId, 10);
+
+        //Verify consultantId with userId
+        const userId = localStorage.getItem('userId');
+        if(parsedConsultantId !== parseInt(userId)){
+          setError('Unauthorized access: Consultant ID does not match logged-in user.');
+          return;
+        }
+
         setConsultantId(parsedConsultantId); // Set the consultantId state
 
-        // Set isApproved state
-        setIsApproved(storedIsApproved === 'true');
 
         const data = await getConsultantBookingsById(token, parsedConsultantId);
         setBookings(data);
@@ -50,19 +60,13 @@ const ConsultantDashboardPage = () => {
     };
 
     // Call fetchBookings only if consultantId is valid
-    if (localStorage.getItem('isConsultant') === 'true' && localStorage.getItem('userId')) {
+    if (localStorage.getItem('userId') && localStorage.getItem('userRole') === 'consultant') {
       fetchBookings();
-    }
-    else {
-      setError('You must be logged in as Consultant to access this page')
+    } else {
+      setError('You must be logged in as a Consultant to access this page');
     }
 
   }, []);
-
-  // Redirect if consultant is not approved
-  if (localStorage.getItem('isConsultant') === 'true' && localStorage.getItem('isApproved') === 'false') {
-    return <Navigate to="/" />;
-  }
 
   return (
     <div className="min-h-screen bg-gray-100 p-10">

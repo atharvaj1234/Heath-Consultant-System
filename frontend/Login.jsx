@@ -1,10 +1,9 @@
-
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock } from 'lucide-react';
 import { loginUser } from '../utils/api';
 
-const Login = ({ setIsLoggedIn, setUserRole, setIsConsultant, setIsApproved, onLoginSuccess }) => {
+const Login = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -22,13 +21,9 @@ const Login = ({ setIsLoggedIn, setUserRole, setIsConsultant, setIsApproved, onL
     try {
       const data = await loginUser(email, password);
       localStorage.setItem('token', data.token);
-      localStorage.setItem('userRole', data.role);
-      localStorage.setItem('isConsultant', data.isConsultant);
-      localStorage.setItem('isApproved', data.isApproved);
       onLoginSuccess(data.role, data.isConsultant, data.isApproved);
 
       if (data.role === 'consultant') {
-        localStorage.setItem('isConsultant', 'true')
         navigate('/consultantdashboard');
       } else if (data.role === 'admin') {
         navigate('/admindashboard');

@@ -1,4 +1,3 @@
-
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
@@ -223,6 +222,7 @@ initializeDatabase()
     app.get('/api/consultant/profile', authenticateToken, (req, res) => {
       const userId = req.user.userId;
       const db = getDb();
+      console.log("user: ",req.user);
 
       // First, check if the user is a consultant
       db.get("SELECT isConsultant FROM users WHERE id = ?", [userId], (err, user) => {
@@ -230,8 +230,8 @@ initializeDatabase()
           return handleDatabaseError(res, err, 'Failed to check user role');
         }
 
-        if (!user || user.isConsultant !== 1) {
-          return res.status(403).json({ message: 'User is not a consultant' });
+        if (!user) {
+          return res.status(403).json({ message: 'User is not a consultant', user: user });
         }
 
         // If the user is a consultant, retrieve the consultant profile
@@ -266,7 +266,7 @@ initializeDatabase()
           return handleDatabaseError(res, err, 'Failed to check user role');
         }
 
-        if (!user || user.isConsultant !== 1) {
+        if (!user || user.isConsultant !== '1') {
           return res.status(403).json({ message: 'User is not a consultant' });
         }
 
@@ -356,14 +356,46 @@ initializeDatabase()
       const { consultantId, date, time, status = 'pending' } = req.body;
       const db = getDb();
 
-      db.run("INSERT INTO bookings (userId, consultantId, date, time, status) VALUES (?, ?, ?, ?, ?)", [userId, consultantId, date, time, status], function (err) {
-        if (err) {
-          return handleDatabaseError(res, err, 'Failed to create booking');
-        }
+      db.get(
+        "SELECT COUNT(*) AS count FROM bookings WHERE consultantId = ? AND date = ? AND time = ?",
+        [consultantId, date, time],
+        (err, row) => {
+          if (err) {
+            return handleDatabaseError(res, err, 'Failed to check consultant availability');
+          }
 
-        const bookingId = this.lastID;
-        res.status(201).json({ id: bookingId, userId, consultantId, date, time, status });
-      });
+          if (row.count > 0) {
+            return res.status(400).json({ message: 'Consultant is already booked for this date and time.' });
+          }
+
+          db.get(
+            "SELECT COUNT(*) AS count FROM bookings WHERE userId = ? AND date = ? AND time = ?",
+            [userId, date, time],
+            (err, row) => {
+              if (err) {
+                return handleDatabaseError(res, err, 'Failed to check user availability');
+              }
+
+              if (row.count > 0) {
+                return res.status(400).json({ message: 'You already have a booking for this date and time.' });
+              }
+
+              db.run(
+                "INSERT INTO bookings (userId, consultantId, date, time, status) VALUES (?, ?, ?, ?, ?)",
+                [userId, consultantId, date, time, status],
+                function (err) {
+                  if (err) {
+                    return handleDatabaseError(res, err, 'Failed to create booking');
+                  }
+
+                  const bookingId = this.lastID;
+                  res.status(201).json({ id: bookingId, userId, consultantId, date, time, status });
+                }
+              );
+            }
+          );
+        }
+      );
     });
 
     // Booking acceptance route
@@ -371,15 +403,47 @@ initializeDatabase()
       const bookingId = req.params.id;
       const db = getDb();
 
-      db.run("UPDATE bookings SET status = 'accepted' WHERE id = ?", [bookingId], function (err) {
-        if (err) {
-          return handleDatabaseError(res, err, 'Failed to accept booking');
+      db.get(
+        "SELECT consultantId, date, time FROM bookings WHERE id = ?",
+        [bookingId],
+        (err, booking) => {
+          if (err) {
+            return handleDatabaseError(res, err, 'Failed to retrieve booking details');
+          }
+
+          if (!booking) {
+            return res.status(404).json({ message: 'Booking not found' });
+          }
+
+          db.get(
+            "SELECT COUNT(*) AS count FROM bookings WHERE consultantId = ? AND date = ? AND time = ? AND status = 'accepted'",
+            [booking.consultantId, booking.date, booking.time],
+            (err, row) => {
+              if (err) {
+                return handleDatabaseError(res, err, 'Failed to check for conflicting bookings');
+              }
+
+              if (row.count > 0) {
+                return res.status(400).json({ message: 'This timeslot is already booked by another booking.' });
+              }
+
+              db.run(
+                "UPDATE bookings SET status = 'accepted' WHERE id = ?",
+                [bookingId],
+                function (err) {
+                  if (err) {
+                    return handleDatabaseError(res, err, 'Failed to accept booking');
+                  }
+                  if (this.changes === 0) {
+                    return res.status(404).json({ message: 'Booking not found' });
+                  }
+                  res.json({ message: 'Booking accepted successfully' });
+                }
+              );
+            }
+          );
         }
-        if (this.changes === 0) {
-          return res.status(404).json({ message: 'Booking not found' });
-        }
-        res.json({ message: 'Booking accepted successfully' });
-      });
+      );
     });
 
     // Health Records (GET and POST)
@@ -595,7 +659,7 @@ initializeDatabase()
           return handleDatabaseError(res, err, 'Failed to check user role');
         }
 
-        if (!user || user.isConsultant !== 1) {
+        if (!user || user.isConsultant !== '1') {
           return res.status(403).json({ message: 'User is not a consultant' });
         }
 

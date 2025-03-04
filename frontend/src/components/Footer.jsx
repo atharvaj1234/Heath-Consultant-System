@@ -1,4 +1,6 @@
+
 import { Home, Phone, Mail, Link } from 'lucide-react';
+import { Link as RouterLink } from 'react-router-dom';
 
 const Footer = () => {
   return (
@@ -32,20 +34,20 @@ const Footer = () => {
             <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
             <ul className="list-none p-0">
               <li className="mb-2">
-                <Link to="/" className="text-sm hover:text-blue-600 flex items-center">
+                <RouterLink to="/" className="text-sm hover:text-blue-600 flex items-center">
                   <Home className="mr-2 h-4 w-4" />
                   Home
-                </Link>
+                </RouterLink>
               </li>
               <li className="mb-2">
-                <Link to="/aboutus" className="text-sm hover:text-blue-600 flex items-center">
+                <RouterLink to="/aboutus" className="text-sm hover:text-blue-600 flex items-center">
                   About Us
-                </Link>
+                </RouterLink>
               </li>
               <li>
-                <Link to="/contactus" className="text-sm hover:text-blue-600 flex items-center">
+                <RouterLink to="/contactus" className="text-sm hover:text-blue-600 flex items-center">
                   Contact Us
-                </Link>
+                </RouterLink>
               </li>
             </ul>
           </div>
@@ -54,12 +56,12 @@ const Footer = () => {
         <div className="mt-8 text-center text-sm">
           <p>&copy; {new Date().getFullYear()} Health Consultant. All rights reserved.</p>
           <p>
-            <Link to="/privacypolicy" className="hover:text-blue-600 mr-4">
+            <RouterLink to="/privacypolicy" className="hover:text-blue-600 mr-4">
               Privacy Policy
-            </Link>
-            <Link to="/termsofservice" className="hover:text-blue-600">
+            </RouterLink>
+            <RouterLink to="/termsofservice" className="hover:text-blue-600">
               Terms of Service
-            </Link>
+            </RouterLink>
           </p>
         </div>
       </div>

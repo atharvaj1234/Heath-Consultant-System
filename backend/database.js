@@ -39,13 +39,13 @@ async function createTables() {
           email TEXT UNIQUE,
           password TEXT,
           role TEXT DEFAULT 'user',
-          isConsultant TEXT,
-          contactInformation TEXT,
-          areasOfExpertise TEXT,
-          isApproved TEXT,
+          isConsultant INTEGER DEFAULT 0,
           bloodGroup TEXT,
           medicalHistory TEXT,
-          currentPrescriptions TEXT
+          currentPrescriptions TEXT,
+          contactInformation TEXT,
+          areasOfExpertise TEXT,
+          isApproved INTEGER DEFAULT 0
         )
       `, (err) => {
         if (err) {

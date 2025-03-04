@@ -7,8 +7,15 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: #f7f7f7;
   color: #333;
+  min-width: 100%; /* Ensure body takes full width */
+  overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+html {
+    min-width: 100%;
+    overflow-x: hidden;
 }
 
 #root {
-  width: 100vw;
+  min-width: 100%;
 }

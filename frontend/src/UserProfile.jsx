@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getProfile, updateProfile } from '../utils/api';
@@ -69,12 +68,27 @@ const UserProfile = () => {
         return;
       }
 
-      let updatedProfile;
+      let payload = {
+        fullName,
+        email
+      };
+
       if (!isConsultant) {
-        updatedProfile = await updateProfile(token, fullName, email, bloodGroup, medicalHistory, currentPrescriptions, null, null);
+        payload = {
+          ...payload,
+          bloodGroup,
+          medicalHistory,
+          currentPrescriptions
+        };
       } else {
-        updatedProfile = await updateProfile(token, fullName, email, null, null, null, contactInformation, areasOfExpertise);
+        payload = {
+          ...payload,
+          contactInformation,
+          areasOfExpertise
+        };
       }
+
+      const updatedProfile = await updateProfile(token, payload);
 
       console.log('Profile updated successfully:', updatedProfile);
       setIsEditing(false);
@@ -265,4 +279,5 @@ const UserProfile = () => {
     </div>
   );
 };
+
 export default UserProfile;

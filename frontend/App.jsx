@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
@@ -10,8 +9,8 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import NotFound from './pages/NotFound';
 import Login from './pages/Login';
-import Register from './pages/Register.jsx'; // Corrected import path and extension
-import UserProfile from './pages/UserProfile.jsx'; // Corrected import path and extension
+import Register from './pages/Register';
+import UserProfile from './pages/UserProfile';
 import ConsultantProfile from './pages/ConsultantProfile';
 import ConsultantSearch from './pages/ConsultantSearch';
 import ConsultantDetails from './pages/ConsultantDetails';
@@ -21,8 +20,8 @@ import HealthRecords from './pages/HealthRecords';
 import Messaging from './pages/Messaging';
 import Payment from './pages/Payment';
 import Review from './pages/Review';
-import AdminDashboard from './pages/AdminDashboard.jsx'; // Corrected import path and extension
-import ConsultantDashboardPage from './pages/ConsultantDashboardPage.jsx'; // Corrected import path and extension
+import AdminDashboard from './pages/AdminDashboard';
+import ConsultantDashboardPage from './pages/ConsultantDashboardPage';
 import './App.css';
 import './index.css'; //Importing index.css to solve global styling issues
 
@@ -59,9 +58,12 @@ function App() {
 
   // Callback function to update login state and user info
   const handleLoginSuccess = useCallback((role, isConsultant, isApproved) => {
+    localStorage.setItem('userRole', role);
+    localStorage.setItem('isConsultant', String(isConsultant));
+    localStorage.setItem('isApproved', String(isApproved));
     setIsLoggedIn(true);
     setUserRole(role);
-    setIsConsultant(isConsultant === 1 || isConsultant === true); // Ensure boolean value
+    setIsConsultant(Boolean(isConsultant === 1 || isConsultant === true)); // Ensure boolean value
     setIsApproved(Boolean(isApproved));   // Ensure boolean value
   }, []);
 
@@ -87,7 +89,7 @@ function App() {
           <Route path="/contactus" element={<ContactUs />} />
           <Route path="/privacypolicy" element={<PrivacyPolicy />} />
           <Route path="/termsofservice" element={<TermsOfService />} />
-          <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} setUserRole={setUserRole} setIsConsultant={setIsConsultant} setIsApproved={setIsApproved} onLoginSuccess={handleLoginSuccess} />} />
+          <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
           <Route path="/register" element={<Register />} />
           <Route path="/userprofile" element={<UserProfile />} />
 
@@ -106,13 +108,15 @@ function App() {
           )}
 
           {/* Consultant profile and dashboard only accessible if logged in as consultant, approved,  Navigate to home if not approved*/}
-          {isLoggedIn && userRole === 'consultant' && isApproved ? (
-            <>
-              <Route path="/consultantprofile" element={<ConsultantProfile />} />
-              <Route path="/consultantdashboard" element={<ConsultantDashboardPage />} />
-            </>
-          ) : (isLoggedIn && userRole === 'consultant') ? (
-            <Route path="/consultantprofile" element={<Navigate to="/" />} />
+          {isLoggedIn && userRole === 'consultant' ? (
+            isApproved ? (
+              <>
+                <Route path="/consultantprofile" element={<ConsultantProfile />} />
+                <Route path="/consultantdashboard" element={<ConsultantDashboardPage />} />
+              </>
+            ) : (
+              <Route path="/consultantprofile" element={<Navigate to="/" />} />
+            )
           ) : null}
 
           {/* Admin dashboard route, require login and admin role */}
@@ -132,4 +136,3 @@ function App() {
 }
 
 export default App;
-

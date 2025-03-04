@@ -8,8 +8,9 @@ const ConsultantDashboardPage = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [consultantId, setConsultantId] = useState(null); // Ensure it's null initially
+  const [consultantId, setConsultantId] = useState(null);
   const [isApproved, setIsApproved] = useState(false);
+  const [userRole, setUserRole] = useState('');
 
   useEffect(() => {
     // Function to fetch bookings
@@ -20,9 +21,15 @@ const ConsultantDashboardPage = () => {
         const token = localStorage.getItem('token');
         const storedConsultantId = localStorage.getItem('userId');
         const storedIsApproved = localStorage.getItem('isApproved');
+        const storedUserRole = localStorage.getItem('userRole');
 
         if (!token) {
           setError('Authentication required. Please login.');
+          return;
+        }
+
+        if (!storedUserRole || storedUserRole !== 'consultant') {
+          setError('You must be a consultant to access this page.');
           return;
         }
 
@@ -38,6 +45,7 @@ const ConsultantDashboardPage = () => {
 
         // Set isApproved state
         setIsApproved(storedIsApproved === 'true');
+        setUserRole(storedUserRole);
 
         const data = await getConsultantBookingsById(token, parsedConsultantId);
         setBookings(data);
@@ -49,12 +57,13 @@ const ConsultantDashboardPage = () => {
       }
     };
 
-    // Call fetchBookings only if consultantId is valid
-    if (localStorage.getItem('isConsultant') === 'true' && localStorage.getItem('userId')) {
+    // Call fetchBookings only if consultantId is valid and the user is a consultant
+    if (localStorage.getItem('isConsultant') === 'true' && localStorage.getItem('userId') && localStorage.getItem('userRole') === 'consultant') {
       fetchBookings();
-    }
-    else {
-      setError('You must be logged in as Consultant to access this page')
+    } else {
+      if (localStorage.getItem('userRole') !== 'consultant') {
+        setError('You must be logged in as a Consultant to access this page')
+      }
     }
 
   }, []);
@@ -63,6 +72,12 @@ const ConsultantDashboardPage = () => {
   if (localStorage.getItem('isConsultant') === 'true' && localStorage.getItem('isApproved') === 'false') {
     return <Navigate to="/" />;
   }
+
+  // Redirect if the user is not a consultant
+  if (localStorage.getItem('userRole') !== 'consultant' && localStorage.getItem('token')) {
+    return <Navigate to="/" />; // Redirect to home page or appropriate route
+  }
+
 
   return (
     <div className="min-h-screen bg-gray-100 p-10">
