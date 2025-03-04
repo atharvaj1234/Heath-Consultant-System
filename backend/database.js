@@ -33,20 +33,31 @@ async function createTables() {
   return new Promise((resolve, reject) => {
     db.serialize(() => {
       db.run(`
-        CREATE TABLE IF NOT EXISTS users (
-          id INTEGER PRIMARY KEY,
-          fullName TEXT,
-          email TEXT UNIQUE,
-          password TEXT,
-          role TEXT DEFAULT 'user',
-          isConsultant INTEGER DEFAULT 0,
-          bloodGroup TEXT,
-          medicalHistory TEXT,
-          currentPrescriptions TEXT,
-          contactInformation TEXT,
-          areasOfExpertise TEXT,
-          isApproved INTEGER DEFAULT 0
-        )
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      fullName TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL,
+      role TEXT,
+      phone TEXT NOT NULL,
+      profilePicture TEXT DEFAULT NULL, -- Path to the profile picture (optional)
+      
+      -- User-specific fields
+      bloodGroup TEXT DEFAULT NULL,
+      medicalHistory TEXT DEFAULT NULL,
+      currentPrescriptions TEXT DEFAULT NULL,
+
+      -- Consultant-specific fields
+      isConsultant INTEGER DEFAULT 0, -- 1 if consultant, 0 otherwise
+      bio TEXT DEFAULT NULL,
+      qualification TEXT DEFAULT NULL,
+      areasOfExpertise TEXT DEFAULT NULL,
+      speciality TEXT DEFAULT NULL,
+      availability TEXT DEFAULT NULL,  -- Store as JSON string
+      bankAccount TEXT DEFAULT NULL,
+
+      isApproved INTEGER DEFAULT 0 -- 1 if approved, 0 otherwise
+    );
       `, (err) => {
         if (err) {
           reject(err);
@@ -175,51 +186,130 @@ async function createTables() {
 }
 
 async function seedConsultants() {
+  // Check if users table is empty
   return new Promise((resolve, reject) => {
-    // Check if consultants table is empty
-    db.get("SELECT COUNT(*) AS count FROM consultants", (err, row) => {
-      if (err) {
-        reject(err);
-        return;
-      }
+    db.get(
+      "SELECT COUNT(*) AS count FROM users WHERE isConsultant = 1",
+      (err, row) => {
+        if (err) {
+          reject(err);
+          return;
+        }
 
-      const count = row.count;
+        const count = row.count;
 
-      if (count === 0) {
-        // If consultants table is empty, seed with dummy data
-        const stmt = db.prepare(`
-          INSERT INTO consultants (userId, specialty, qualifications, availability, imageUrl)
-          VALUES (?, ?, ?, ?, ?)
-        `);
+        if (count === 0) {
+          // If consultants table is empty, seed with dummy data
+          const stmt = db.prepare(`
+            INSERT INTO users (fullName, email, password, role, phone, isConsultant, bio, qualification, areasOfExpertise, speciality, availability, bankAccount, isApproved, profilePicture)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `);
 
-        const consultants = [
-          { userId: 1, specialty: 'Cardiology', qualifications: 'MD', availability: 'Mon-Fri', imageUrl: 'https://placehold.co/200x200' },
-          { userId: 2, specialty: 'Neurology', qualifications: 'PhD', availability: 'Tue-Sat', imageUrl: 'https://placehold.co/200x200' },
-          { userId: 3, specialty: 'Pediatrics', qualifications: 'MD', availability: 'Wed-Sun', imageUrl: 'https://placehold.co/200x200' }
-        ];
+          const consultants = [
+            {
+              fullName: "Dr. Jane Doe",
+              email: "jane.doe@example.com",
+              password: "password123",
+              role: "consultant",
+              phone: "555-123-4567",
+              bio: "Experienced cardiologist",
+              qualification: "MD, Cardiology",
+              areasOfExpertise: "Heart failure, Hypertension",
+              speciality: "Cardiology",
+              availability: '{"Monday": "9:00-17:00", "Tuesday": "9:00-17:00"}',
+              bankAccount: "1234567890",
+              isApproved: 1,
+              profilePicture: "https://placehold.co/200x200",
+            },
+            {
+              fullName: "Dr. John Smith",
+              email: "john.smith@example.com",
+              password: "password456",
+              role: "consultant",
+              phone: "555-987-6543",
+              bio: "Neurologist specializing in migraines",
+              qualification: "PhD, Neurology",
+              areasOfExpertise: "Migraines, Epilepsy",
+              speciality: "Neurology",
+              availability: '{"Wednesday": "10:00-18:00", "Thursday": "10:00-18:00"}',
+              bankAccount: "0987654321",
+              isApproved: 0,
+              profilePicture: "https://placehold.co/200x200",
+            },
+            {
+              fullName: "Dr. Emily Chen",
+              email: "emily.chen@example.com",
+              password: "password789",
+              role: "consultant",
+              phone: "555-555-5555",
+              bio: "Pediatrician with a passion for child health",
+              qualification: "MD, Pediatrics",
+              areasOfExpertise: "Childhood illnesses, Vaccinations",
+              speciality: "Pediatrics",
+              availability: '{"Friday": "8:00-16:00", "Saturday": "8:00-12:00"}',
+              bankAccount: "1122334455",
+              isApproved: 1,
+              profilePicture: "https://placehold.co/200x200",
+            },
+          ];
 
-        consultants.forEach(consultant => {
-          stmt.run([consultant.userId, consultant.specialty, consultant.qualifications, consultant.availability, consultant.imageUrl], (err) => {
+          consultants.forEach((consultant) => {
+            const {
+              fullName,
+              email,
+              password,
+              role,
+              phone,
+              bio,
+              qualification,
+              areasOfExpertise,
+              speciality,
+              availability,
+              bankAccount,
+              isApproved,
+              profilePicture,
+            } = consultant;
+
+            stmt.run(
+              [
+                fullName,
+                email,
+                password,
+                role,
+                phone,
+                1, // isConsultant = 1
+                bio,
+                qualification,
+                areasOfExpertise,
+                speciality,
+                availability,
+                bankAccount,
+                isApproved,
+                profilePicture,
+              ],
+              (err) => {
+                if (err) {
+                  reject(err);
+                  return;
+                }
+              }
+            );
+          });
+
+          stmt.finalize((err) => {
             if (err) {
               reject(err);
               return;
             }
+            console.log("Consultants table seeded with dummy data.");
+            resolve();
           });
-        });
-
-        stmt.finalize((err) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          console.log('Consultants table seeded with dummy data.');
+        } else {
+          console.log("Consultants table already has data, skipping seeding.");
           resolve();
-        });
-      } else {
-        console.log('Consultants table already has data, skipping seeding.');
-        resolve();
+        }
       }
-    });
+    );
   });
 }
 

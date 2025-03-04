@@ -3,12 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import { getProfile, updateProfile } from '../utils/api';
 import { User, Mail, Edit } from 'lucide-react';
 
-const UserProfile = () => {
+const UserProfile = ({ setProfilePicture: setAppProfilePicture }) => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [isConsultant, setIsConsultant] = useState(false);
+  const [bloodGroup, setBloodGroup] = useState('');
+  const [medicalHistory, setMedicalHistory] = useState('');
+  const [currentPrescriptions, setCurrentPrescriptions] = useState('');
+  const [phone, setPhone] = useState('');
+  const [areasOfExpertise, setAreasOfExpertise] = useState('');
+  const [profilePicture, setProfilePicture] = useState('');
+  const [newProfilePicture, setNewProfilePicture] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -25,6 +33,15 @@ const UserProfile = () => {
         const data = await getProfile(token);
         setFullName(data.fullName);
         setEmail(data.email);
+        setIsConsultant(data.isConsultant === 1);
+        setBloodGroup(data.bloodGroup || '');
+        setMedicalHistory(data.medicalHistory || '');
+        setCurrentPrescriptions(data.currentPrescriptions || '');
+        setPhone(data.phone || '');
+        setEmail(data.email || '');
+        setProfilePicture(data.profilePicture || '');
+        setAppProfilePicture(data.profilePicture || '');
+
       } catch (err) {
         setError('Failed to retrieve profile. Please try again.');
         console.error('Failed to fetch profile:', err);
@@ -34,7 +51,7 @@ const UserProfile = () => {
     };
 
     fetchProfile();
-  }, []);
+  }, [setAppProfilePicture]);
 
   const handleEditClick = () => {
     setIsEditing(true);
@@ -56,7 +73,26 @@ const UserProfile = () => {
         return;
       }
 
-      const updatedProfile = await updateProfile(token, fullName, email);
+      const formData = new FormData();
+      formData.append('fullName', fullName);
+      formData.append('email', email);
+
+      if (!isConsultant) {
+        formData.append('bloodGroup', bloodGroup);
+        formData.append('medicalHistory', medicalHistory);
+        formData.append('currentPrescriptions', currentPrescriptions);
+      } else {
+        formData.append('phone', phone);
+      }
+
+      if (newProfilePicture) {
+        formData.append('profilePicture', newProfilePicture);
+      }
+
+      const updatedProfile = await updateProfile(formData);
+
+      setProfilePicture(updatedProfile.profilePicture);
+      setAppProfilePicture(updatedProfile.profilePicture)
       console.log('Profile updated successfully:', updatedProfile);
       setIsEditing(false);
     } catch (err) {
@@ -106,7 +142,87 @@ const UserProfile = () => {
                     onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
+                 <div className="mb-4">
+                  <label htmlFor="profilePicture" className="block text-gray-700 text-sm font-bold mb-2">
+                    Change Profile Picture
+                  </label>
+                  <input
+                    type="file"
+                    id="profilePicture"
+                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                    onChange={(e) => setNewProfilePicture(e.target.files[0])}
+                  />
+                </div>
+                {!isConsultant ? (
+                  <>
+                    <div className="mb-4">
+                      <label htmlFor="bloodGroup" className="block text-gray-700 text-sm font-bold mb-2">
+                        Blood Group
+                      </label>
+                      <input
+                        type="text"
+                        id="bloodGroup"
+                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        value={bloodGroup}
+                        onChange={(e) => setBloodGroup(e.target.value)}
+                      />
+                    </div>
 
+                    <div className="mb-4">
+                      <label htmlFor="medicalHistory" className="block text-gray-700 text-sm font-bold mb-2">
+                        Medical History
+                      </label>
+                      <textarea
+                        id="medicalHistory"
+                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        value={medicalHistory}
+                        onChange={(e) => setMedicalHistory(e.target.value)}
+                        rows="3"
+                      />
+                    </div>
+
+                    <div className="mb-4">
+                      <label htmlFor="currentPrescriptions" className="block text-gray-700 text-sm font-bold mb-2">
+                        Current Prescriptions
+                      </label>
+                      <textarea
+                        id="currentPrescriptions"
+                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        value={currentPrescriptions}
+                        onChange={(e) => setCurrentPrescriptions(e.target.value)}
+                        rows="3"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-4">
+                      <label htmlFor="phone" className="block text-gray-700 text-sm font-bold mb-2">
+                        Contact Information
+                      </label>
+                      <input
+                        type="text"
+                        id="phone"
+                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="mb-4">
+                      <label htmlFor="areasOfExpertise" className="block text-gray-700 text-sm font-bold mb-2">
+                        Areas of Expertise
+                      </label>
+                      <textarea
+                        id="areasOfExpertise"
+                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        value={areasOfExpertise}
+                        onChange={(e) => setAreasOfExpertise(e.target.value)}
+                        rows="3"
+                      />
+                    </div>
+                  </>
+                )}
                 <div className="flex items-center justify-between">
                   <button
                     className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full focus:outline-none focus:shadow-outline"
@@ -125,6 +241,13 @@ const UserProfile = () => {
               </form>
             ) : (
               <div>
+                <div className="flex items-center justify-center mb-4">
+                   <img
+                      className="rounded-full w-32 h-32 mx-auto mb-4"
+                      src={profilePicture || "https://placehold.co/128x128"}
+                      alt="Profile Picture"
+                  />
+                </div>
                 <div className="flex items-center mb-4">
                   <User className="h-6 w-6 mr-2 text-gray-500" />
                   <p className="text-gray-700 font-semibold">Full Name: {fullName}</p>
@@ -133,6 +256,33 @@ const UserProfile = () => {
                   <Mail className="h-6 w-6 mr-2 text-gray-500" />
                   <p className="text-gray-700 font-semibold">Email: {email}</p>
                 </div>
+                {!isConsultant ? (
+                  <>
+                    <div className="flex items-center mb-4">
+                      <span className="h-6 w-6 mr-2 text-gray-500">B</span>
+                      <p className="text-gray-700 font-semibold">Blood Group: {bloodGroup}</p>
+                    </div>
+                    <div className="flex items-center mb-4">
+                      <span className="h-6 w-6 mr-2 text-gray-500">MH</span>
+                      <p className="text-gray-700 font-semibold">Medical History: {medicalHistory}</p>
+                    </div>
+                    <div className="flex items-center mb-4">
+                      <span className="h-6 w-6 mr-2 text-gray-500">CP</span>
+                      <p className="text-gray-700 font-semibold">Current Prescriptions: {currentPrescriptions}</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center mb-4">
+                      <span className="h-6 w-6 mr-2 text-gray-500">CI</span>
+                      <p className="text-gray-700 font-semibold">Contact Information: {phone}</p>
+                    </div>
+                    <div className="flex items-center mb-4">
+                      <span className="h-6 w-6 mr-2 text-gray-500">AE</span>
+                      <p className="text-gray-700 font-semibold">Areas of Expertise: {areasOfExpertise}</p>
+                    </div>
+                  </>
+                )}
 
                 <button
                   className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full focus:outline-none focus:shadow-outline flex items-center"

@@ -7,9 +7,13 @@ const ConsultantProfile = () => {
   const [specialty, setSpecialty] = useState('');
   const [qualifications, setQualifications] = useState('');
   const [availability, setAvailability] = useState('');
+  const [bio, setBio] = useState('');
+  const [areasOfExpertise, setAreasOfExpertise] = useState('')
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [profilePicture, setProfilePicture] = useState('');
+  const [name, setName] = useState('')
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -27,6 +31,10 @@ const ConsultantProfile = () => {
         setSpecialty(data.specialty);
         setQualifications(data.qualifications);
         setAvailability(data.availability);
+        setProfilePicture(data.profilePicture || "https://placehold.co/128x128");
+        setBio(data.bio)
+        setAreasOfExpertise(data.areasOfExpertise)
+        setName(data.fullName)
       } catch (err) {
         setError('Failed to retrieve consultant profile. Please try again.');
         console.error('Failed to fetch consultant profile:', err);
@@ -140,6 +148,25 @@ const ConsultantProfile = () => {
               </form>
             ) : (
               <div>
+                <div className="flex items-center justify-center mb-4">
+                  <img
+                    className="rounded-full w-32 h-32 mx-auto mb-4"
+                    src={profilePicture}
+                    alt="Profile Picture"
+                  />
+                </div>
+                <div className="flex items-center mb-4">
+                  <User className="h-6 w-6 mr-2 text-gray-500" />
+                  <p className="text-gray-700 font-semibold">Name: {name}</p>
+                </div>
+                <div className="flex items-center mb-4">
+                  <User className="h-6 w-6 mr-2 text-gray-500" />
+                  <p className="text-gray-700 font-semibold">Bio: {bio}</p>
+                </div>
+                <div className="flex items-center mb-4">
+                  <User className="h-6 w-6 mr-2 text-gray-500" />
+                  <p className="text-gray-700 font-semibold">Expertise: {areasOfExpertise}</p>
+                </div>
                 <div className="flex items-center mb-4">
                   <User className="h-6 w-6 mr-2 text-gray-500" />
                   <p className="text-gray-700 font-semibold">Specialty: {specialty}</p>

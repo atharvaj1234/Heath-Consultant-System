@@ -43,30 +43,29 @@ const Navbar = ({ isLoggedIn, userRole, isConsultant, handleLogout }) => {
                                 )}
                                 {isLoggedIn && (
                                     <>
+                                        {isLoggedIn && userRole === 'user' && (<>
                                         <Link to="/consultationdashboard" className="text-gray-600 hover:bg-blue-400 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
                                             <Calendar className="inline-block h-5 w-5 mr-1" />
                                             My Appointments
                                         </Link>
-                                        {isLoggedIn && userRole === 'user' && (
                                             <Link to="/healthrecords" className="text-gray-600 hover:bg-blue-400 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
                                                 <File className="inline-block h-5 w-5 mr-1" />
                                                 Health Records
-                                            </Link>
+                                            </Link></>
                                         )}
-                                        {isLoggedIn && userRole === 'consultant' && (
+                                        {isLoggedIn && userRole === 'consultant' && (<>
                                             <Link to="/consultantprofile" className="text-gray-600 hover:bg-blue-400 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
                                                 <Tool className="inline-block h-5 w-5 mr-1" />
                                                 My Profile
                                             </Link>
+                                            <Link to="/consultantdashboard" className="text-gray-600 hover:bg-blue-400 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                                                Consultant Dashboard
+                                            </Link>
+                                            </>
                                         )}
                                         {isLoggedIn && userRole === 'admin' && ( // Added Admin Dashboard Link
                                             <Link to="/admindashboard" className="text-gray-600 hover:bg-blue-400 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
                                                 Admin Dashboard
-                                            </Link>
-                                        )}
-                                        {isLoggedIn && userRole === 'consultant' && ( // Added Consultant Dashboard Link
-                                            <Link to="/consultantdashboard" className="text-gray-600 hover:bg-blue-400 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
-                                                Consultant Dashboard
                                             </Link>
                                         )}
                                     </>

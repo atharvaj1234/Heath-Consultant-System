@@ -13,25 +13,13 @@ export const loginUser = async (email, password) => {
     }
 };
 
-export const registerUser = async (fullName, email, password, role, bloodGroup, medicalHistory, currentPrescriptions, contactInformation, areasOfExpertise) => {
+export const registerUser = async (formData) => {
     try {
-        const payload = {
-            fullName,
-            email,
-            password,
-            role
-        };
-
-        if (role === 'user') {
-            payload.bloodGroup = bloodGroup;
-            payload.medicalHistory = medicalHistory;
-            payload.currentPrescriptions = currentPrescriptions;
-        } else if (role === 'consultant') {
-            payload.contactInformation = contactInformation;
-            payload.areasOfExpertise = areasOfExpertise;
-        }
-
-        const response = await axios.post(`${BASE_URL}/api/register`, payload);
+        const response = await axios.post(`${BASE_URL}/api/register`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data', // Set content type for FormData
+            },
+        });
         return response.data;
     } catch (error) {
         console.error('Registration failed:', error);
@@ -52,10 +40,14 @@ export const getProfile = async (token) => {
     }
 };
 
-export const updateProfile = async (token, payload) => {
+export const updateProfile = async (formData) => {
   try {
-    const response = await axios.put(`${BASE_URL}/api/profile`, payload, {
-      headers: { Authorization: `Bearer ${token}` },
+    const token = localStorage.getItem('token');
+    const response = await axios.put(`${BASE_URL}/api/profile`, formData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data',
+      },
     });
     return response.data;
   } catch (error) {
@@ -270,6 +262,34 @@ export const acceptBooking = async (token, bookingId) => {
     }
 };
 
+export const rejectBooking = async (token, bookingId) => {
+    try {
+        const response = await axios.put(`${BASE_URL}/api/bookings/${bookingId}/reject`, {}, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Failed to accept booking:', error);
+        throw error;
+    }
+};
+
+export const cancelBooking = async (token, bookingId) => {
+    try {
+        const response = await axios.put(`${BASE_URL}/api/bookings/${bookingId}/cancel`, {}, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Failed to accept booking:', error);
+        throw error;
+    }
+};
+
 export const getConsultantBookings = async (token) => {
      try {
         const response = await axios.get(`${BASE_URL}/api/consultant/bookings`, {
@@ -283,6 +303,21 @@ export const getConsultantBookings = async (token) => {
         throw error;
     }
 };
+
+export const get_details = async (token, bookingId) => {
+    try {
+       const response = await axios.get(`${BASE_URL}/api/getDetails/${bookingId}`, {
+           headers: {
+               Authorization: `Bearer ${token}`
+           }
+       });
+       return response.data;
+    } catch (error) {
+       console.error('Failed to retrieve consultant bookings:', error);
+       throw error;
+    }
+
+}
 
 // Route to get all bookings for a specific consultant ID
 export const getConsultantBookingsById = async (token, consultantId) => {
