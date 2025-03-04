@@ -91,7 +91,7 @@ const handleDatabaseError = (req, res, err, message) => {
       ); // Use environment variable for secret
     };
 
-    // User Registration
+// User Registration
 app.post(
   "/api/register",
   upload.single("profilePicture"),
@@ -275,6 +275,85 @@ app.post(
         next();
       });
     };
+
+    // User Payments API (GET)
+// User Payments API (GET)
+app.get("/api/user/payments", authenticateToken, async (req, res) => {
+  const userId = req.user.userId;
+  const db = getDb();
+
+  try {
+    db.all(
+      `SELECT
+          p.*,
+          b.date AS bookingDate,
+          b.time AS bookingTime,
+          r.refundAmount AS refundAmount
+        FROM
+          payments p
+        INNER JOIN
+          bookings b ON p.bookingId = b.id
+        LEFT JOIN
+          refunds r ON p.id = r.paymentId
+        WHERE
+          p.userId = ?`,
+      [userId],
+      (err, payments) => {
+        if (err) {
+          return handleDatabaseError(res, err, "Failed to retrieve payments");
+        }
+
+        // Process payments to calculate final amount
+        const processedPayments = payments.map((payment) => {
+          let finalAmount = payment.amount;
+          if (payment.status === "refunded" && payment.refundAmount) {
+            finalAmount -= payment.refundAmount; // Make the refund amount negative
+          }
+
+          return {
+            ...payment,
+            finalAmount: finalAmount,
+          };
+        });
+
+        res.json(processedPayments);
+      }
+    );
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to retrieve payments" });
+  }
+});
+
+// Consultant Earnings API (GET)
+app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
+  const userId = req.user.userId;
+  const db = getDb();
+
+  try {
+    db.all(
+      `
+      SELECT p.*, b.date as bookingDate, b.time as bookingTime
+      FROM payments p
+      INNER JOIN bookings b ON p.bookingId = b.id
+      WHERE b.consultantId = ?
+      AND p.status = 'paid'
+      AND b.status NOT IN ('rejected', 'canceled')  -- Exclude rejected and cancelled bookings
+      `,
+      [userId],
+      (err, earnings) => {
+        if (err) {
+          return handleDatabaseError(res, err, "Failed to retrieve earnings");
+        }
+
+        res.json(earnings);
+      }
+    );
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to retrieve earnings" });
+  }
+});
 
     // User Profile (GET)
     app.get("/api/profile", authenticateToken, (req, res) => {
@@ -525,6 +604,297 @@ app.post(
       );
     });
 
+// Booking acceptance route
+app.put("/api/bookings/:id/accept", authenticateToken, (req, res) => {
+  const bookingId = req.params.id;
+  const db = getDb();
+
+  db.get(
+    "SELECT consultantId, date, time FROM bookings WHERE id = ?",
+    [bookingId],
+    (err, booking) => {
+      if (err) {
+        return handleDatabaseError(
+          res,
+          err,
+          "Failed to retrieve booking details"
+        );
+      }
+
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      db.get(
+        "SELECT COUNT(*) AS count FROM bookings WHERE consultantId = ? AND date = ? AND time = ? AND status = 'accepted'",
+        [booking.consultantId, booking.date, booking.time],
+        (err, row) => {
+          if (err) {
+            return handleDatabaseError(
+              res,
+              err,
+              "Failed to check for conflicting bookings"
+            );
+          }
+
+          if (row.count > 0) {
+            return res
+              .status(400)
+              .json({
+                message:
+                  "This timeslot is already booked by another booking.",
+              });
+          }
+
+          db.run(
+            "UPDATE bookings SET status = 'accepted' WHERE id = ?",
+            [bookingId],
+            function (err) {
+              if (err) {
+                return handleDatabaseError(
+                  res,
+                  err,
+                  "Another booking is already accepted for same timeslot, please consider cancelling that first."
+                );
+              }
+              if (this.changes === 0) {
+                return res
+                  .status(404)
+                  .json({ message: "Booking not found" });
+              }
+              res.json({ message: "Booking accepted successfully" });
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
+app.put("/api/bookings/:id/cancel", authenticateToken, (req, res) => {
+    const bookingId = req.params.id;
+    const db = getDb();
+
+    db.get(
+      "SELECT consultantId, date, time FROM bookings WHERE id = ?",
+      [bookingId],
+      (err, booking) => {
+        if (err) {
+          return handleDatabaseError(
+            res,
+            err,
+            "Failed to retrieve booking details"
+          );
+        }
+
+        if (!booking) {
+          return res.status(404).json({ message: "Booking not found" });
+        }
+
+        db.run(
+          "UPDATE bookings SET status = 'canceled' WHERE id = ?",
+          [bookingId],
+          function (err) {
+            if (err) {
+              return handleDatabaseError(
+                res,
+                err,
+                "Failed to update booking"
+              );
+            }
+            if (this.changes === 0) {
+              return res.status(404).json({ message: "Booking not found" });
+            }
+           //Refund calculation logic
+            db.get(
+              "SELECT id, amount FROM payments WHERE bookingId = ?",
+              [bookingId],
+              (err, payment) => {
+                if (err) {
+                  return handleDatabaseError(
+                    res,
+                    err,
+                    "Failed to fetch payment details"
+                  );
+                }
+                if (payment) {
+                  // Calculating the refund amount and inserting the details
+                  const refundAmount = payment.amount * 0.9; // Deducting a 10% cancellation fee
+
+                  db.run(
+                    "INSERT INTO refunds (paymentId, refundDate, refundAmount, reason) VALUES (?, ?, ?, ?)",
+                    [payment.id, new Date().toISOString(), refundAmount, "Booking cancellation"],
+                    function (err) {
+                      if (err) {
+                        return handleDatabaseError(
+                          res,
+                          err,
+                          "Failed to process refund"
+                        );
+                      }
+                      res.json({ message: "Booking canceled successfully", refundId: this.lastID });
+                    });
+
+                  // Update the payment status to refunded after the refund amount calculation
+                  db.run(
+                    "UPDATE payments SET status = 'refunded' WHERE bookingId = ?",
+                    [bookingId],
+                    function (err) {
+                      if (err) {
+                        return handleDatabaseError(
+                          res,
+                          err,
+                          "Failed to update payment status"
+                        );
+                      }
+                      if (this.changes === 0) {
+                        return res
+                          .status(404)
+                          .json({ message: "Payment not found" });
+                      }
+
+                    }
+                  );
+                } else{
+                  return res.status(404).json({ message: "Payment not found" });
+                }
+              }
+            );
+          }
+        );
+      }
+    );
+  });
+
+  app.put("/api/bookings/:id/reject", authenticateToken, (req, res) => {
+    const bookingId = req.params.id;
+    const db = getDb();
+  
+    db.get(
+      "SELECT consultantId, date, time, userId FROM bookings WHERE id = ?",
+      [bookingId],
+      (err, booking) => {
+        if (err) {
+          return handleDatabaseError(
+            res,
+            err,
+            "Failed to retrieve booking details"
+          );
+        }
+  
+        if (!booking) {
+          return res.status(404).json({ message: "Booking not found" });
+        }
+  
+        db.get(
+          "SELECT COUNT(*) AS count FROM bookings WHERE consultantId = ? AND date = ? AND time = ? AND status = 'accepted'",
+          [booking.consultantId, booking.date, booking.time],
+          (err, row) => {
+            if (err) {
+              return handleDatabaseError(
+                res,
+                err,
+                "Failed to check for conflicting bookings"
+              );
+            }
+  
+            if (row.count > 0) {
+              return res
+                .status(400)
+                .json({
+                  message:
+                    "This timeslot is already booked by another booking.",
+                });
+            }
+  
+            db.run(
+              "UPDATE bookings SET status = 'rejected' WHERE id = ?",
+              [bookingId],
+              function (err) {
+                if (err) {
+                  return handleDatabaseError(
+                    res,
+                    err,
+                    "Failed to update booking"
+                  );
+                }
+                if (this.changes === 0) {
+                  return res.status(404).json({ message: "Booking not found" });
+                }
+  
+                // Refund logic (similar to cancel route)
+                db.get(
+                  "SELECT id, amount FROM payments WHERE bookingId = ?",
+                  [bookingId],
+                  (err, payment) => {
+                    if (err) {
+                      return handleDatabaseError(
+                        res,
+                        err,
+                        "Failed to fetch payment details"
+                      );
+                    }
+                    if (payment) {
+                      // Calculating the refund amount and inserting the details
+                      const refundAmount = payment.amount * 0.9; // Deducting a 10% cancellation fee
+  
+                      db.run(
+                        "INSERT INTO refunds (paymentId, refundDate, refundAmount, reason) VALUES (?, ?, ?, ?)",
+                        [
+                          payment.id,
+                          new Date().toISOString(),
+                          refundAmount,
+                          "Booking rejection",
+                        ],
+                        function (err) {
+                          if (err) {
+                            return handleDatabaseError(
+                              res,
+                              err,
+                              "Failed to process refund"
+                            );
+                          }
+                          res.json({
+                            message: "Booking rejected successfully",
+                            refundId: this.lastID,
+                          });
+                        }
+                      );
+  
+                      // Update the payment status to refunded after the refund amount calculation
+                      db.run(
+                        "UPDATE payments SET status = 'refunded' WHERE bookingId = ?",
+                        [bookingId],
+                        function (err) {
+                          if (err) {
+                            return handleDatabaseError(
+                              res,
+                              err,
+                              "Failed to update payment status"
+                            );
+                          }
+                          if (this.changes === 0) {
+                            return res
+                              .status(404)
+                              .json({ message: "Payment not found" });
+                          }
+                        }
+                      );
+                    } else {
+                      return res
+                        .status(404)
+                        .json({ message: "Payment not found" });
+                    }
+                  }
+                );
+              }
+            );
+          }
+        );
+      }
+    );
+  });
+
     app.post(
       "/api/bookings",
       authenticateToken,
@@ -535,263 +905,199 @@ app.post(
         body("date").notEmpty().withMessage("Date is required"),
         body("time").notEmpty().withMessage("Time is required"),
       ],
-      (req, res) => {
+      async (req, res) => {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
           return res.status(400).json({ errors: errors.array() });
         }
-
+    
         const userId = req.user.userId;
         const { consultantId, date, time, status = "pending" } = req.body;
         const db = getDb();
-
+    
+        // Validate that the consultantId is a valid integer
+        if (isNaN(consultantId)) {
+          return res
+            .status(400)
+            .json({ message: "Invalid consultant ID. Must be a number." });
+        }
+        console.log(req.body); // ADDED: log entire body for debugging
+        console.log(req.user);
+        // Fetch consultant information, including availability
         db.get(
-          "SELECT COUNT(*) AS count FROM bookings WHERE consultantId = ? AND date = ? AND time = ?",
-          [consultantId, date, time],
-          (err, row) => {
+          "SELECT availability, speciality FROM users WHERE id = ? AND isConsultant = 1",
+          [consultantId],
+          async (err, consultant) => {
             if (err) {
+              console.error("Error retrieving consultant availability:", err); // Enhanced logging
               return handleDatabaseError(
                 res,
                 err,
-                "Failed to check consultant availability"
+                "Failed to retrieve consultant availability"
               );
             }
-
-            if (row.count > 0) {
-              return res
-                .status(400)
-                .json({
-                  message:
-                    "Consultant is already booked for this date and time.",
-                });
+        // ADDED: log consultant data
+            if (!consultant) {
+              return res.status(404).json({ message: "Consultant not found." });
             }
+        console.log(consultant)
+            try {
+              // Validate that the specified time is in the consultant's availability
+              let availableTimes = JSON.parse(consultant.availability);
+              const bookingDay = new Date(date).toLocaleDateString("en-US", {
+                weekday: "long",
+              });
+               // Check if bookingDay is a valid day of the week
+               if (!availableTimes.hasOwnProperty(bookingDay)) {
+                return res.status(400).json({
+                  message:
+                    "Consultant is not available on the specified day. Check days with consultant.",
+                });
+              }
+    
+              // Validate that time is in the consultant's availability
+              //const validTimes = availableTimes[bookingDay].split(","); //This line was edited
+              const validTimes = availableTimes[bookingDay]; //This is the new value
 
-            db.get(
-              "SELECT COUNT(*) AS count FROM bookings WHERE userId = ? AND date = ? AND time = ?",
-              [userId, date, time],
-              (err, row) => {
-                if (err) {
-                  return handleDatabaseError(
-                    res,
-                    err,
-                    "Failed to check user availability"
-                  );
-                }
-
-                if (row.count > 0) {
-                  return res
-                    .status(400)
-                    .json({
+              if (!validTimes || (validTimes.startTime > time || validTimes.endTime < time)) {
+                return res.status(400).json({
+                  message:
+                    "Consultant is not available on the specified time. Check valid times.",
+                });
+              }
+    
+              // Additional validation
+              db.get(
+                "SELECT COUNT(*) AS count FROM bookings WHERE consultantId = ? AND date = ? AND time = ?",
+                [consultantId, date, time],
+                (err, row) => {
+                  if (err) {
+                    console.error("Error checking for conflicting bookings:", err);
+                    return handleDatabaseError(
+                      res,
+                      err,
+                      "Failed to check consultant availability"
+                    );
+                  }
+    
+                  if (row.count > 0) {
+                    return res.status(400).json({
                       message:
-                        "You already have a booking for this date and time.",
+                        "Consultant is already booked for this date and time.",
                     });
-                }
-
-                db.run(
-                  "INSERT INTO bookings (userId, consultantId, date, time, status) VALUES (?, ?, ?, ?, ?)",
-                  [userId, consultantId, date, time, status],
-                  function (err) {
-                    if (err) {
-                      return handleDatabaseError(
-                        res,
-                        err,
-                        "Failed to create booking"
+                  }
+    
+                  db.get(
+                    "SELECT COUNT(*) AS count FROM bookings WHERE userId = ? AND date = ? AND time = ?",
+                    [userId, date, time],
+                    (err, row) => {
+                      if (err) {
+                        console.error("Error checking for user availability", err);
+                        return handleDatabaseError(
+                          res,
+                          err,
+                          "Failed to check user availability"
+                        );
+                      }
+    
+                      if (row.count > 0) {
+                        return res.status(400).json({
+                          message: "You already have a booking for this date and time.",
+                        });
+                      }
+    
+                      db.run(
+                        "INSERT INTO bookings (userId, consultantId, date, time, status) VALUES (?, ?, ?, ?, ?)",
+                        [userId, consultantId, date, time, status],
+                        function (err) {
+                          if (err) {
+                            console.error("Error inserting into bookings",err)
+                            return handleDatabaseError(
+                              res,
+                              err,
+                              "Failed to create booking"
+                            );
+                          }
+                          const bookingId = this.lastID;
+    
+                          const paymentDate = new Date().toISOString();
+                          const amount = 100; // Setting an amount (should be retrieved from database)
+    
+                          // Insert payment information into the payments table
+                          db.run(
+                            "INSERT INTO payments (bookingId, userId, amount, paymentDate, status) VALUES (?, ?, ?, ?, ?)",
+                            [bookingId, userId, amount, paymentDate, "paid"],
+                            function (err) {
+                              if (err) {
+                                console.error("Error inserting payment:",err)
+                                // If there's an error inserting payment info, handle the error and potentially roll back the booking creation
+                                return handleDatabaseError(
+                                  res,
+                                  err,
+                                  "Failed to create payment information"
+                                );
+                              }
+                              const paymentId = this.lastID;
+                              res.status(201).json({
+                                id: bookingId,
+                                userId,
+                                consultantId,
+                                date,
+                                time,
+                                status,
+                                paymentId,
+                              });
+                            }
+                          );
+                        }
                       );
                     }
-
-                    const bookingId = this.lastID;
-                    res
-                      .status(201)
-                      .json({
-                        id: bookingId,
-                        userId,
-                        consultantId,
-                        date,
-                        time,
-                        status,
-                      });
-                  }
-                );
-              }
-            );
+                  );
+                }
+              );
+            } catch (parseError) {
+              console.error("Error parsing availability data:", parseError)
+              return res
+                .status(500)
+                .json({ message: "Failed to parse availability data" });
+            }
           }
         );
       }
     );
 
-    // Booking acceptance route
-    app.put("/api/bookings/:id/accept", authenticateToken, (req, res) => {
-      const bookingId = req.params.id;
-      const db = getDb();
+// API to Fetch Consultant Availability
+app.get("/api/consultant/:consultantId/availability", (req, res) => {
+  const consultantId = req.params.consultantId;
+  const db = getDb();
 
-      db.get(
-        "SELECT consultantId, date, time FROM bookings WHERE id = ?",
-        [bookingId],
-        (err, booking) => {
-          if (err) {
-            return handleDatabaseError(
-              res,
-              err,
-              "Failed to retrieve booking details"
-            );
-          }
+  db.get(
+    "SELECT availability FROM users WHERE id = ? AND isConsultant = 1",
+    [consultantId],
+    (err, consultant) => {
+      if (err) {
+        return handleDatabaseError(
+          res,
+          err,
+          "Failed to retrieve consultant availability"
+        );
+      }
 
-          if (!booking) {
-            return res.status(404).json({ message: "Booking not found" });
-          }
+      if (!consultant) {
+        return res.status(404).json({ message: "Consultant not found" });
+      }
 
-          db.get(
-            "SELECT COUNT(*) AS count FROM bookings WHERE consultantId = ? AND date = ? AND time = ? AND status = 'accepted'",
-            [booking.consultantId, booking.date, booking.time],
-            (err, row) => {
-              if (err) {
-                return handleDatabaseError(
-                  res,
-                  err,
-                  "Failed to check for conflicting bookings"
-                );
-              }
-
-              if (row.count > 0) {
-                return res
-                  .status(400)
-                  .json({
-                    message:
-                      "This timeslot is already booked by another booking.",
-                  });
-              }
-
-              db.run(
-                "UPDATE bookings SET status = 'accepted' WHERE id = ?",
-                [bookingId],
-                function (err) {
-                  if (err) {
-                    return handleDatabaseError(
-                      res,
-                      err,
-                      "Another booking is already accepted for same timeslot, please consider cancelling that first."
-                    );
-                  }
-                  if (this.changes === 0) {
-                    return res
-                      .status(404)
-                      .json({ message: "Booking not found" });
-                  }
-                  res.json({ message: "Booking accepted successfully" });
-                }
-              );
-            }
-          );
-        }
-      );
-    });
-
-    app.put("/api/bookings/:id/cancel", authenticateToken, (req, res) => {
-      const bookingId = req.params.id;
-      const db = getDb();
-
-      db.get(
-        "SELECT consultantId, date, time FROM bookings WHERE id = ?",
-        [bookingId],
-        (err, booking) => {
-          if (err) {
-            return handleDatabaseError(
-              res,
-              err,
-              "Failed to retrieve booking details"
-            );
-          }
-
-          if (!booking) {
-            return res.status(404).json({ message: "Booking not found" });
-          }
-
-          db.run(
-            "UPDATE bookings SET status = 'canceled' WHERE id = ?",
-            [bookingId],
-            function (err) {
-              if (err) {
-                return handleDatabaseError(
-                  res,
-                  err,
-                  "Failed to update booking"
-                );
-              }
-              if (this.changes === 0) {
-                return res.status(404).json({ message: "Booking not found" });
-              }
-              res.json({ message: "Booking accepted successfully" });
-            }
-          );
-        }
-      );
-    });
-
-    app.put("/api/bookings/:id/reject", authenticateToken, (req, res) => {
-      const bookingId = req.params.id;
-      const db = getDb();
-
-      db.get(
-        "SELECT consultantId, date, time FROM bookings WHERE id = ?",
-        [bookingId],
-        (err, booking) => {
-          if (err) {
-            return handleDatabaseError(
-              res,
-              err,
-              "Failed to retrieve booking details"
-            );
-          }
-
-          if (!booking) {
-            return res.status(404).json({ message: "Booking not found" });
-          }
-
-          db.get(
-            "SELECT COUNT(*) AS count FROM bookings WHERE consultantId = ? AND date = ? AND time = ? AND status = 'accepted'",
-            [booking.consultantId, booking.date, booking.time],
-            (err, row) => {
-              if (err) {
-                return handleDatabaseError(
-                  res,
-                  err,
-                  "Failed to check for conflicting bookings"
-                );
-              }
-
-              if (row.count > 0) {
-                return res
-                  .status(400)
-                  .json({
-                    message:
-                      "This timeslot is already booked by another booking.",
-                  });
-              }
-
-              db.run(
-                "UPDATE bookings SET status = 'rejected' WHERE id = ?",
-                [bookingId],
-                function (err) {
-                  if (err) {
-                    return handleDatabaseError(
-                      res,
-                      err,
-                      "Failed to update booking"
-                    );
-                  }
-                  if (this.changes === 0) {
-                    return res
-                      .status(404)
-                      .json({ message: "Booking not found" });
-                  }
-                  res.json({ message: "Booking accepted successfully" });
-                }
-              );
-            }
-          );
-        }
-      );
-    });
+      try {
+        const availability = JSON.parse(consultant.availability);
+        res.json(availability);
+      } catch (error) {
+        return res
+          .status(500)
+          .json({ message: "Failed to parse availability data" });
+      }
+    }
+  );
+});
 
     // Health Records (GET and POST)
     app.get("/api/healthrecords", authenticateToken, (req, res) => {

@@ -1,155 +1,290 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { getConsultantById, createBooking } from '../utils/api';
+import { useParams, useNavigate } from 'react-router-dom';
+import { getConsultantById, createBooking, getConsultantBookingsById } from '../utils/api';
+import {
+    Container,
+    Typography,
+    Grid,
+    TextField,
+    Button,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    Alert,
+    CircularProgress,
+} from '@mui/material';
+import dayjs from 'dayjs';
+import 'dayjs/locale/en'; // Import the locale
 
 const Booking = () => {
-  const { id } = useParams();
-  const [consultant, setConsultant] = useState(null);
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
-  const [paymentInfo, setPaymentInfo] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [bookingSuccess, setBookingSuccess] = useState(false);
+    const { id } = useParams();
+    const [consultant, setConsultant] = useState(null);
+    const [selectedDate, setSelectedDate] = useState(dayjs());
+    const [time, setTime] = useState('');
+    const [paymentInfo, setPaymentInfo] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [bookingSuccess, setBookingSuccess] = useState(false);
+    const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchConsultant = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const data = await getConsultantById(id);
-        setConsultant(data);
-      } catch (err) {
-        setError('Failed to retrieve consultant details. Please try again.');
-        setConsultant(null);
-        console.error('Failed to fetch consultant:', err);
-      } finally {
-        setLoading(false);
-      }
+    const [availableTimes, setAvailableTimes] = useState({}); // dynamic times
+    const [bookings, setBookings] = useState([]);
+    const [isTimeSlotAvailable, setIsTimeSlotAvailable] = useState(true);
+
+    const handleAcceptBooking = async (bookingId) => {
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                setError("Authentication required. Please login as an admin.");
+                return;
+            }
+
+            // await acceptBooking(token, bookingId);
+
+            // Update the bookings state to reflect the accepted booking
+            setBookings(
+                bookings.map((booking) =>
+                    booking.id === bookingId
+                        ? { ...booking, status: "accepted" }
+                        : booking
+                )
+            );
+        } catch (err) {
+            setError("Failed to accept booking. Please try again.");
+            console.error("Failed to accept booking:", err);
+        }
     };
 
-    fetchConsultant();
-  }, [id]);
+    const isTimeSlotBooked = (date, time) => {
+        return bookings.some(
+            (booking) => booking.date === date && booking.time === time
+        );
+    };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    setBookingSuccess(false);
+    useEffect(() => {
+        const fetchConsultant = async () => {
+            setLoading(true);
+            setError('');
+            try {
+                const data = await getConsultantById(id);
+                setConsultant(data);
+            } catch (err) {
+                setError('Failed to retrieve consultant details. Please try again.');
+                setConsultant(null);
+                console.error('Failed to fetch consultant:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchConsultant();
+    }, [id]);
 
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setError('Authentication required. Please login.');
-        return;
+    useEffect(() => {
+      const fetchConsultantAvailability = async () => {
+          try {
+              const token = localStorage.getItem('token');
+              const data = await getConsultantBookingsById(token, id);
+              setBookings(data);
+  
+              const response = await fetch(
+                  `http://localhost:5555/api/consultant/${id}/availability`,
+                  {
+                      method: "GET",
+                      headers: {
+                          "Content-Type": "application/json",
+                      },
+                  }
+              );
+              if (!response.ok) {
+                  throw new Error(`HTTP error! Status: ${response.status}`);
+              }
+              const data_available = await response.json();
+              setAvailableTimes(data_available);
+              console.log("Available Times:", data_available);  // CHECKPOINT
+          } catch (parseError) {
+              setError("Failed to load data from the server");
+              console.error(parseError);
+          }
+      };
+      fetchConsultantAvailability();
+  }, [id, selectedDate]);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        setBookingSuccess(false);
+
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                setError('Authentication required. Please login.');
+                return;
+            }
+
+            await createBooking(token, id, selectedDate.format('YYYY-MM-DD'), time);
+            setBookingSuccess(true);
+            setTimeout(() => {
+                navigate('/consultationdashboard');
+            }, 2000);
+        } catch (err) {
+            setError('Failed to create booking. Please try again.');
+            console.error('Booking creation failed:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+    const handleDateChange = (date) => {
+      const today = dayjs().startOf('day'); // Get today's date without time
+      const selected = dayjs(date).startOf('day'); // Normalize selected date
+  
+      if (selected.isBefore(today)) {
+          alert("You cannot select a today's or past date.");
+          return; // Ignore past dates
       }
-
-      await createBooking(token, id, date, time);
-      setBookingSuccess(true);
-    } catch (err) {
-      setError('Failed to create booking. Please try again.');
-      console.error('Booking creation failed:', err);
-    } finally {
-      setLoading(false);
-    }
+  
+      setSelectedDate(selected);
+      setIsTimeSlotAvailable(true); // Reset the availability check when date changes
   };
+  
 
-  if (loading) {
-    return <div className="text-center">Loading booking information...</div>;
-  }
+    const generateTimeSlots = () => {
+      if (!consultant || !availableTimes) return [];
+  
+      const bookingDay = selectedDate.format('dddd'); // Get full day name (e.g., "Monday")
+      console.log("Booking Day:", bookingDay);
+  
+      if (!availableTimes[bookingDay]) {
+          console.log("No availability for this day.");
+          return [];
+      }
+  
+      const { startTime, endTime } = availableTimes[bookingDay];
+      if (!startTime || !endTime) {
+          console.log("Invalid time range.");
+          return [];
+      }
+  
+      // Create proper dayjs objects with date and time
+      const start = dayjs(`${selectedDate.format('YYYY-MM-DD')} ${startTime}`, "YYYY-MM-DD HH:mm");
+      const end = dayjs(`${selectedDate.format('YYYY-MM-DD')} ${endTime}`, "YYYY-MM-DD HH:mm");
+  
+      if (!start.isValid() || !end.isValid()) {
+          console.log("Invalid dayjs objects for time parsing.");
+          return [];
+      }
+  
+      let currentTime = start;
+      const timeSlots = [];
+  
+      while (currentTime.isBefore(end)) {
+          const slotStart = currentTime.format('HH:mm');
+          currentTime = currentTime.add(1, 'hour'); // Increment by 1 hour
+          const slotEnd = currentTime.format('HH:mm');
+  
+          if (currentTime.isAfter(end)) break; // Prevent adding a slot that exceeds the end time
+  
+          timeSlots.push(`${slotStart}-${slotEnd}`);
+      }
+  
+      console.log("Generated Time Slots:", timeSlots);
+      return timeSlots;
+  };
+  
 
-  if (error) {
-    return <div className="text-center text-red-500">{error}</div>;
-  }
+    if (loading) {
+        return (
+            <Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <CircularProgress />
+            </Container>
+        );
+    }
 
-  if (!consultant) {
-    return <div className="text-center">Consultant not found.</div>;
-  }
+    if (error) {
+        return (
+            <Container>
+                <Alert severity="error">{error}</Alert>
+            </Container>
+        );
+    }
 
-  return (
-    <div className="min-h-screen bg-gray-100 p-10">
-      {/* Consultant Information */}
-      <section className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-8 mb-8">
-        <h2 className="text-3xl font-semibold text-gray-800 mb-2">
-          Booking Appointment with {consultant.specialty}
-        </h2>
-        <p className="text-xl text-gray-700">
-          {consultant.specialty}
-        </p>
-      </section>
+    if (!consultant) {
+        return (
+            <Container>
+                <Alert severity="error">Consultant not found.</Alert>
+            </Container>
+        );
+    }
 
-      {/* Booking Form */}
-      <section className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-8">
-        <form onSubmit={handleSubmit}>
-          {/* Date and Time Selection */}
-          <div className="mb-6">
-            <label htmlFor="date" className="block text-gray-700 text-sm font-bold mb-2">
-              Select Date:
-            </label>
-            <input
-              type="date"
-              id="date"
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              required
-            />
-          </div>
+    return (
+        <Container maxWidth="md" sx={{ mt: 4 }}>
+            <Typography variant="h4" component="h1" gutterBottom>
+                Book Appointment with Dr. {consultant.speciality}
+            </Typography>
 
-          <div className="mb-6">
-            <label htmlFor="time" className="block text-gray-700 text-sm font-bold mb-2">
-              Select Time:
-            </label>
-            <select
-              id="time"
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              required
-            >
-              <option value="">Select a time</option>
-              <option value="09:00">9:00 AM</option>
-              <option value="10:00">10:00 AM</option>
-              <option value="11:00">11:00 AM</option>
-              <option value="14:00">2:00 PM</option>
-              <option value="15:00">3:00 PM</option>
-              <option value="16:00">4:00 PM</option>
-            </select>
-          </div>
+            <form onSubmit={handleSubmit}>
+                <Grid container spacing={3}>
+                    <Grid item xs={12}>
+                        <TextField
+                            label="Selected Date"
+                            type="date"
+                            value={selectedDate.format('YYYY-MM-DD')}
+                            onChange={(e) => handleDateChange(dayjs(e.target.value))}
+                            fullWidth
+                            InputLabelProps={{
+                                shrink: true,
+                            }}
+                        />
+                    </Grid>
+                    <Grid item xs={12}>
+                        <FormControl fullWidth>
+                            <InputLabel id="time-select-label">Select Time Slot</InputLabel>
+                            <Select
+                                labelId="time-select-label"
+                                id="time"
+                                value={time}
+                                label="Select Time Slot"
+                                onChange={(e) => setTime(e.target.value)}
+                                required
+                            >
+                                {generateTimeSlots().map((slot) => (
+                                        <MenuItem key={slot} value={slot}>
+                                            {slot}
+                                        </MenuItem>
+                                    ))}
+                            </Select>
+                            {!isTimeSlotAvailable && (
+                                <Alert severity="error">This time slot is already booked. Please select another time.</Alert>
+                            )}
 
-          {/* Payment Information (Simplified) */}
-          <div className="mb-6">
-            <label htmlFor="paymentInfo" className="block text-gray-700 text-sm font-bold mb-2">
-              Payment Information:
-            </label>
-            <input
-              type="text"
-              id="paymentInfo"
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              placeholder="Enter Credit Card Number"
-              value={paymentInfo}
-              onChange={(e) => setPaymentInfo(e.target.value)}
-              required
-            />
-          </div>
+                        </FormControl>
+                    </Grid>
+                    <Grid item xs={12}>
+                        <TextField
+                            label="Payment Information"
+                            placeholder="Enter Credit Card Number"
+                            fullWidth
+                            required
+                            value={paymentInfo}
+                            onChange={(e) => setPaymentInfo(e.target.value)}
+                        />
+                    </Grid>
+                    <Grid item xs={12}>
+                        <Button type="submit" variant="contained" color="primary" fullWidth>
+                            Confirm Booking
+                        </Button>
+                    </Grid>
+                </Grid>
+            </form>
 
-          {/* Confirmation Button */}
-          <button
-            type="submit"
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-colors duration-300"
-          >
-            Confirm Booking
-          </button>
-        </form>
-
-        {bookingSuccess && (
-          <div className="mt-4 text-green-500">
-            Booking created successfully!
-          </div>
-        )}
-      </section>
-    </div>
-  );
+            {bookingSuccess && (
+                <Alert severity="success" sx={{ mt: 3 }}>
+                    Booking created successfully! Redirecting to dashboard...
+                </Alert>
+            )}
+        </Container>
+    );
 };
 
 export default Booking;

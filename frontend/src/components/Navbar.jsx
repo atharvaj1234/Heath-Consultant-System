@@ -1,7 +1,6 @@
-
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Home, Phone, User, LogOut, Calendar, File, User as Tool } from 'lucide-react';
+import { Home, Phone, User, LogOut, Calendar, File, User as Tool, CreditCard } from 'lucide-react';
 
 const Navbar = ({ isLoggedIn, userRole, isConsultant, handleLogout }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -51,7 +50,11 @@ const Navbar = ({ isLoggedIn, userRole, isConsultant, handleLogout }) => {
                                             <Link to="/healthrecords" className="text-gray-600 hover:bg-blue-400 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
                                                 <File className="inline-block h-5 w-5 mr-1" />
                                                 Health Records
-                                            </Link></>
+                                            </Link>
+                                            <Link to="/userpayments" className="text-gray-600 hover:bg-blue-400 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                                              UserPayments
+                                            </Link>
+                                            </>
                                         )}
                                         {isLoggedIn && userRole === 'consultant' && (<>
                                             <Link to="/consultantprofile" className="text-gray-600 hover:bg-blue-400 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
@@ -60,7 +63,11 @@ const Navbar = ({ isLoggedIn, userRole, isConsultant, handleLogout }) => {
                                             </Link>
                                             <Link to="/consultantdashboard" className="text-gray-600 hover:bg-blue-400 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
                                                 Consultant Dashboard
-                                            </Link>
+                                            </Link><>
+                                               <Link to="/consultantearnings" className="text-gray-600 hover:bg-blue-400 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                                                  ConsultantEarnings
+                                                 </Link>
+                                            </>
                                             </>
                                         )}
                                         {isLoggedIn && userRole === 'admin' && ( // Added Admin Dashboard Link
@@ -185,6 +192,16 @@ const Navbar = ({ isLoggedIn, userRole, isConsultant, handleLogout }) => {
                                     Consultant Dashboard
                                 </Link>
                             )}
+                             {isLoggedIn && userRole === 'user' && (
+                                <Link to="/userpayments" className="text-gray-600 hover:bg-blue-400 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
+                                  UserPayments
+                                </Link>
+                              )}
+                              {isLoggedIn && userRole === 'consultant' && (
+                                <Link to="/consultantearnings" className="text-gray-600 hover:bg-blue-400 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
+                                  ConsultantEarnings
+                                </Link>
+                              )}
                             <button
                                 onClick={handleLogout}
                                 className="text-gray-600 hover:bg-blue-400 hover:text-white block px-3 py-2 rounded-md text-base font-medium"

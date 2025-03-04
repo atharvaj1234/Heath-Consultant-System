@@ -69,9 +69,9 @@ const ConsultantDashboardPage = () => {
         return;
       }
 
-      await rejectBooking(token, bookingId);
+      const response = await rejectBooking(token, bookingId);
 
-      // Update the bookings state to reflect the accepted booking
+      // Update the bookings state to reflect the rejected booking
       setBookings(
         bookings.map((booking) =>
           booking.id === bookingId
@@ -79,9 +79,14 @@ const ConsultantDashboardPage = () => {
             : booking
         )
       );
+
+      if (response && response.refundId) {
+        // Handle success (e.g., display a message)
+        console.log(`Booking rejected, refund initiated with ID: ${response.refundId}`);
+      }
     } catch (err) {
-      setError("Failed to accept booking. Please try again.");
-      console.error("Failed to accept booking:", err);
+      setError("Failed to reject booking. Please try again.");
+      console.error("Failed to reject booking:", err);
     }
   };
 
@@ -161,7 +166,7 @@ const ConsultantDashboardPage = () => {
 
     // Call fetchBookings only if consultantId is valid
     if (
-      localStorage.getItem("isConsultant") === "true" &&
+      localStorage.getItem("isConsultant") === "1" &&
       localStorage.getItem("userId")
     ) {
       fetchBookings();

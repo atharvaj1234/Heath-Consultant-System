@@ -180,6 +180,41 @@ async function createTables() {
           return;
         }
       });
+      db.run(`
+
+CREATE TABLE IF NOT EXISTS payments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  bookingId INTEGER NOT NULL,
+  userId INTEGER NOT NULL,
+  amount REAL NOT NULL,
+  paymentDate TEXT NOT NULL,
+  paymentMethod TEXT,
+  status TEXT NOT NULL, -- e.g., 'paid', 'refunded', 'pending'
+  FOREIGN KEY (bookingId) REFERENCES bookings(id),
+  FOREIGN KEY (userId) REFERENCES users(id)
+);
+      `, (err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+      });
+      db.run(`
+        CREATE TABLE IF NOT EXISTS refunds (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          paymentId INTEGER NOT NULL,
+          refundDate TEXT NOT NULL,
+          refundAmount REAL NOT NULL,
+          reason TEXT,
+          FOREIGN KEY (paymentId) REFERENCES payments(id)
+        );
+      `, (err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+      });
+
 
       resolve();
     });
@@ -187,51 +222,130 @@ async function createTables() {
 }
 
 async function seedConsultants() {
+  // Check if users table is empty
   return new Promise((resolve, reject) => {
-    // Check if consultants table is empty
-    db.get("SELECT COUNT(*) AS count FROM consultants", (err, row) => {
-      if (err) {
-        reject(err);
-        return;
-      }
+    db.get(
+      "SELECT COUNT(*) AS count FROM users WHERE isConsultant = 1",
+      (err, row) => {
+        if (err) {
+          reject(err);
+          return;
+        }
 
-      const count = row.count;
+        const count = row.count;
 
-      if (count === 0) {
-        // If consultants table is empty, seed with dummy data
-        const stmt = db.prepare(`
-          INSERT INTO consultants (userId, specialty, qualifications, availability, imageUrl)
-          VALUES (?, ?, ?, ?, ?)
-        `);
+        if (count === 0) {
+          // If consultants table is empty, seed with dummy data
+          const stmt = db.prepare(`
+            INSERT INTO users (fullName, email, password, role, phone, isConsultant, bio, qualification, areasOfExpertise, speciality, availability, bankAccount, isApproved, profilePicture)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `);
 
-        const consultants = [
-          { userId: 1, specialty: 'Cardiology', qualifications: 'MD', availability: 'Mon-Fri', imageUrl: 'https://placehold.co/200x200' },
-          { userId: 2, specialty: 'Neurology', qualifications: 'PhD', availability: 'Tue-Sat', imageUrl: 'https://placehold.co/200x200' },
-          { userId: 3, specialty: 'Pediatrics', qualifications: 'MD', availability: 'Wed-Sun', imageUrl: 'https://placehold.co/200x200' }
-        ];
+          const consultants = [
+            {
+              fullName: "Dr. Jane Doe",
+              email: "jane.doe@example.com",
+              password: "password123",
+              role: "consultant",
+              phone: "555-123-4567",
+              bio: "Experienced cardiologist",
+              qualification: "MD, Cardiology",
+              areasOfExpertise: "Heart failure, Hypertension",
+              speciality: "Cardiology",
+              availability: '{"Monday": "9:00-17:00", "Tuesday": "9:00-17:00"}',
+              bankAccount: "1234567890",
+              isApproved: 1,
+              profilePicture: "https://placehold.co/200x200",
+            },
+            {
+              fullName: "Dr. John Smith",
+              email: "john.smith@example.com",
+              password: "password456",
+              role: "consultant",
+              phone: "555-987-6543",
+              bio: "Neurologist specializing in migraines",
+              qualification: "PhD, Neurology",
+              areasOfExpertise: "Migraines, Epilepsy",
+              speciality: "Neurology",
+              availability: '{"Wednesday": "10:00-18:00", "Thursday": "10:00-18:00"}',
+              bankAccount: "0987654321",
+              isApproved: 0,
+              profilePicture: "https://placehold.co/200x200",
+            },
+            {
+              fullName: "Dr. Emily Chen",
+              email: "emily.chen@example.com",
+              password: "password789",
+              role: "consultant",
+              phone: "555-555-5555",
+              bio: "Pediatrician with a passion for child health",
+              qualification: "MD, Pediatrics",
+              areasOfExpertise: "Childhood illnesses, Vaccinations",
+              speciality: "Pediatrics",
+              availability: '{"Friday": "8:00-16:00", "Saturday": "8:00-12:00"}',
+              bankAccount: "1122334455",
+              isApproved: 1,
+              profilePicture: "https://placehold.co/200x200",
+            },
+          ];
 
-        consultants.forEach(consultant => {
-          stmt.run([consultant.userId, consultant.specialty, consultant.qualifications, consultant.availability, consultant.imageUrl], (err) => {
+          consultants.forEach((consultant) => {
+            const {
+              fullName,
+              email,
+              password,
+              role,
+              phone,
+              bio,
+              qualification,
+              areasOfExpertise,
+              speciality,
+              availability,
+              bankAccount,
+              isApproved,
+              profilePicture,
+            } = consultant;
+
+            stmt.run(
+              [
+                fullName,
+                email,
+                password,
+                role,
+                phone,
+                1, // isConsultant = 1
+                bio,
+                qualification,
+                areasOfExpertise,
+                speciality,
+                availability,
+                bankAccount,
+                isApproved,
+                profilePicture,
+              ],
+              (err) => {
+                if (err) {
+                  reject(err);
+                  return;
+                }
+              }
+            );
+          });
+
+          stmt.finalize((err) => {
             if (err) {
               reject(err);
               return;
             }
+            console.log("Consultants table seeded with dummy data.");
+            resolve();
           });
-        });
-
-        stmt.finalize((err) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          console.log('Consultants table seeded with dummy data.');
+        } else {
+          console.log("Consultants table already has data, skipping seeding.");
           resolve();
-        });
-      } else {
-        console.log('Consultants table already has data, skipping seeding.');
-        resolve();
+        }
       }
-    });
+    );
   });
 }
 
@@ -334,7 +448,7 @@ const handleDatabaseError = (req, res, err, message) => {
       ); // Use environment variable for secret
     };
 
-    // User Registration
+// User Registration
 app.post(
   "/api/register",
   upload.single("profilePicture"),
@@ -345,7 +459,7 @@ app.post(
       .isLength({ min: 6 })
       .withMessage("Password must be at least 6 characters long"),
     body("role")
-      .isIn(["user", "consultant"]) //Removed admin role from here
+      .isIn(["user", "consultant", "admin"]) //Removed admin role from here
       .withMessage("Invalid role selected"),
     body("phone").notEmpty().withMessage("Phone number is required"), //Added phone validation
   ],
@@ -378,29 +492,34 @@ app.post(
       const hashedPassword = await bcrypt.hash(password, 10);
       const db = getDb();
 
-      let sql = "INSERT INTO users (fullName, email, password, role, phone"; // Include phone
-      let values = [fullName, email, hashedPassword, role, phone]; // Include phone
+      const isConsultant = role === "consultant" ? 1 : 0; // Set isConsultant flag
 
+      // Construct the SQL query dynamically
+      let sql =
+        "INSERT INTO users (fullName, email, password, role, phone, isConsultant, profilePicture";
+      let values = [fullName, email, hashedPassword, role, phone, isConsultant, profilePicture];
+
+      // Add fields based on role
       if (role === "user") {
-        sql +=
-          ", bloodGroup, medicalHistory, currentPrescriptions, profilePicture) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        values.push(
-          bloodGroup,
-          medicalHistory,
-          currentPrescriptions,
-          profilePicture
-        );
+        sql += ", bloodGroup, medicalHistory, currentPrescriptions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        values.push(bloodGroup, medicalHistory, currentPrescriptions);
       } else if (role === "consultant") {
         sql +=
-          ", isConsultant, bio, qualification, areasOfExpertise, speciality, availability, bankAccount, isApproved, profilePicture) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        values.push(1, bio, qualification, areasOfExpertise, speciality, availability, bankAccount, 0, profilePicture);
-
-      } else { // This case is almost impossible due to validation, but good to have
-        sql += ", profilePicture) VALUES (?, ?, ?, ?, ?)";
-        values.push(profilePicture);
+          ", bio, qualification, areasOfExpertise, speciality, availability, bankAccount, isApproved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        values.push(
+          bio,
+          qualification,
+          areasOfExpertise,
+          speciality,
+          availability,
+          bankAccount,
+          0
+        ); // isApproved default 0
+      } else {
+        sql += ") VALUES (?, ?, ?, ?, ?, ?, ?)"; //role = admin
       }
-      console.log("sql", sql)
-      console.log("values", values)
+
+      // Execute the SQL query
       db.run(sql, values, function (err) {
         if (err) {
           if (err.message.includes("UNIQUE constraint failed")) {
@@ -418,34 +537,17 @@ app.post(
 
         const userId = this.lastID;
 
-        // Create a consultant profile if the user registered as a consultant
-        if (role === "consultant") {
-            res
-              .status(201)
-              .json({
-                id: userId,
-                fullName,
-                email,
-                phone,
-                role,
-                isConsultant: 1,
-                isApproved: 0,
-                profilePicture,
-              });
-        } else {
-          res
-            .status(201)
-            .json({
-              id: userId,
-              fullName,
-              email,
-              phone,
-              role,
-              isConsultant: 0,
-              isApproved: 0,
-              profilePicture,
-            });
-        }
+        // Send successful response
+        res.status(201).json({
+          id: userId,
+          fullName,
+          email,
+          phone,
+          role,
+          isConsultant,
+          isApproved: 0,
+          profilePicture,
+        });
       });
     } catch (error) {
       console.error(error);
@@ -500,6 +602,7 @@ app.post(
                 userId: user.id,
                 isConsultant: user.isConsultant,
                 isApproved: user.isApproved,
+                profilePicture: user.profilePicture,
               });
             }
           );
@@ -536,15 +639,15 @@ app.post(
       const db = getDb();
 
       db.get(
-        `SELECT 
-            id, 
-            fullName, 
-            email, 
-            role, 
+        `SELECT
+            id,
+            fullName,
+            email,
+            role,
             phone,
             profilePicture,
-            bloodGroup, 
-            medicalHistory, 
+            bloodGroup,
+            medicalHistory,
             currentPrescriptions,
             isConsultant,
             bio,
@@ -593,6 +696,12 @@ app.post(
           medicalHistory,
           currentPrescriptions,
           phone,
+          bio,
+          qualification,
+          areasOfExpertise,
+          speciality,
+          availability,
+          bankAccount,
           } = req.body;
         const profilePicture = req.file ? req.file.path : null;
         const db = getDb();
@@ -605,8 +714,8 @@ app.post(
             ", bloodGroup = ?, medicalHistory = ?, currentPrescriptions = ?";
           values.push(bloodGroup, medicalHistory, currentPrescriptions);
         } else if (req.user.role === "consultant") {
-          sql += ", phone = ?";
-          values.push(phone);
+          sql += ", phone = ?, bio = ?, qualification = ?, areasOfExpertise = ?, speciality = ?, availability = ?, bankAccount = ?";
+          values.push(phone, bio, qualification, areasOfExpertise, speciality, availability, bankAccount);
         }
         sql += ", profilePicture = ? WHERE id = ?";
         values.push(profilePicture, userId);
@@ -628,7 +737,7 @@ app.post(
 
       // First, check if the user is a consultant
       db.get(
-        "SELECT isConsultant FROM users WHERE id = ?",
+        "SELECT * FROM users WHERE id = ? AND isConsultant = 1",
         [userId],
         (err, user) => {
           if (err) {
@@ -642,27 +751,7 @@ app.post(
           }
 
           // If the user is a consultant, retrieve the consultant profile
-          db.get(
-            "SELECT * FROM users WHERE id = ?",
-            [userId],
-            (err, consultant) => {
-              if (err) {
-                return handleDatabaseError(
-                  res,
-                  err,
-                  "Failed to retrieve consultant profile"
-                );
-              }
-
-              if (!consultant) {
-                return res
-                  .status(404)
-                  .json({ message: "Consultant profile not found" });
-              }
-
-              res.json(consultant);
-            }
-          );
+          res.json(user);
         }
       );
     });
@@ -695,7 +784,7 @@ app.post(
               return handleDatabaseError(res, err, "Failed to check user role");
             }
 
-            if (!user || user.isConsultant !== "1") {
+            if (!user || user.isConsultant !== 1) {
               return res
                 .status(403)
                 .json({ message: "User is not a consultant" });
@@ -703,7 +792,7 @@ app.post(
 
             // Update the consultant profile
             db.run(
-              "UPDATE consultants SET specialty = ?, qualifications = ?, availability = ? WHERE userId = ?",
+              "UPDATE users SET specialty = ?, qualification = ?, availability = ? WHERE id = ?",
               [specialty, qualifications, availability, userId],
               (err) => {
                 if (err) {
@@ -725,7 +814,7 @@ app.post(
     // List Consultants (GET)
     app.get("/api/consultants", (req, res) => {
       const { specialty, rating, availability } = req.query;
-      let query = "SELECT * FROM consultants WHERE 1=1"; // Start with a base query
+      let query = "SELECT * FROM users WHERE isConsultant = 1"; // Start with a base query
 
       const params = [];
       if (specialty) {
@@ -755,7 +844,7 @@ app.post(
       const db = getDb();
 
       db.get(
-        "SELECT * FROM consultants WHERE id = ?",
+        "SELECT * FROM users WHERE id = ? AND isConsultant = 1",
         [consultantId],
         (err, consultant) => {
           if (err) {
@@ -803,89 +892,197 @@ app.post(
         body("date").notEmpty().withMessage("Date is required"),
         body("time").notEmpty().withMessage("Time is required"),
       ],
-      (req, res) => {
+      async (req, res) => {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
           return res.status(400).json({ errors: errors.array() });
         }
-
+    
         const userId = req.user.userId;
         const { consultantId, date, time, status = "pending" } = req.body;
         const db = getDb();
-
+    
+        // Validate that the consultantId is a valid integer
+        if (isNaN(consultantId)) {
+          return res
+            .status(400)
+            .json({ message: "Invalid consultant ID. Must be a number." });
+        }
+        console.log(req.body); // ADDED: log entire body for debugging
+        console.log(req.user);
+        // Fetch consultant information, including availability
         db.get(
-          "SELECT COUNT(*) AS count FROM bookings WHERE consultantId = ? AND date = ? AND time = ?",
-          [consultantId, date, time],
-          (err, row) => {
+          "SELECT availability, speciality FROM users WHERE id = ? AND isConsultant = 1",
+          [consultantId],
+          async (err, consultant) => {
             if (err) {
+              console.error("Error retrieving consultant availability:", err); // Enhanced logging
               return handleDatabaseError(
                 res,
                 err,
-                "Failed to check consultant availability"
+                "Failed to retrieve consultant availability"
               );
             }
-
-            if (row.count > 0) {
-              return res
-                .status(400)
-                .json({
-                  message:
-                    "Consultant is already booked for this date and time.",
-                });
+        // ADDED: log consultant data
+            if (!consultant) {
+              return res.status(404).json({ message: "Consultant not found." });
             }
-
-            db.get(
-              "SELECT COUNT(*) AS count FROM bookings WHERE userId = ? AND date = ? AND time = ?",
-              [userId, date, time],
-              (err, row) => {
-                if (err) {
-                  return handleDatabaseError(
-                    res,
-                    err,
-                    "Failed to check user availability"
-                  );
-                }
-
-                if (row.count > 0) {
-                  return res
-                    .status(400)
-                    .json({
+        console.log(consultant)
+            try {
+              // Validate that the specified time is in the consultant's availability
+              let availableTimes = JSON.parse(consultant.availability);
+              const bookingDay = new Date(date).toLocaleDateString("en-US", {
+                weekday: "long",
+              });
+              // Check if bookingDay is a valid day of the week
+              if (!availableTimes[bookingDay]) {
+                return res.status(400).json({
+                  message:
+                    "Consultant is not available on the specified day. Check days with consultant.",
+                });
+              }
+    
+              // Validate that time is in the consultant's availability
+              const validTimes = availableTimes[bookingDay].split(",");
+              if (!validTimes.includes(time)) {
+                return res.status(400).json({
+                  message:
+                    "Consultant is not available on the specified time. Check valid times.",
+                });
+              }
+    
+              // Additional validation
+              db.get(
+                "SELECT COUNT(*) AS count FROM bookings WHERE consultantId = ? AND date = ? AND time = ?",
+                [consultantId, date, time],
+                (err, row) => {
+                  if (err) {
+                    console.error("Error checking for conflicting bookings:", err);
+                    return handleDatabaseError(
+                      res,
+                      err,
+                      "Failed to check consultant availability"
+                    );
+                  }
+    
+                  if (row.count > 0) {
+                    return res.status(400).json({
                       message:
-                        "You already have a booking for this date and time.",
+                        "Consultant is already booked for this date and time.",
                     });
-                }
-
-                db.run(
-                  "INSERT INTO bookings (userId, consultantId, date, time, status) VALUES (?, ?, ?, ?, ?)",
-                  [userId, consultantId, date, time, status],
-                  function (err) {
-                    if (err) {
-                      return handleDatabaseError(
-                        res,
-                        err,
-                        "Failed to create booking"
+                  }
+    
+                  db.get(
+                    "SELECT COUNT(*) AS count FROM bookings WHERE userId = ? AND date = ? AND time = ?",
+                    [userId, date, time],
+                    (err, row) => {
+                      if (err) {
+                        console.error("Error checking for user availability", err);
+                        return handleDatabaseError(
+                          res,
+                          err,
+                          "Failed to check user availability"
+                        );
+                      }
+    
+                      if (row.count > 0) {
+                        return res.status(400).json({
+                          message: "You already have a booking for this date and time.",
+                        });
+                      }
+    
+                      db.run(
+                        "INSERT INTO bookings (userId, consultantId, date, time, status) VALUES (?, ?, ?, ?, ?)",
+                        [userId, consultantId, date, time, status],
+                        function (err) {
+                          if (err) {
+                            console.error("Error inserting into bookings",err)
+                            return handleDatabaseError(
+                              res,
+                              err,
+                              "Failed to create booking"
+                            );
+                          }
+                          const bookingId = this.lastID;
+    
+                          const paymentDate = new Date().toISOString();
+                          const amount = 100; // Setting an amount (should be retrieved from database)
+    
+                          // Insert payment information into the payments table
+                          db.run(
+                            "INSERT INTO payments (bookingId, userId, amount, paymentDate, status) VALUES (?, ?, ?, ?, ?)",
+                            [bookingId, userId, amount, paymentDate, "paid"],
+                            function (err) {
+                              if (err) {
+                                console.error("Error inserting payment:",err)
+                                // If there's an error inserting payment info, handle the error and potentially roll back the booking creation
+                                return handleDatabaseError(
+                                  res,
+                                  err,
+                                  "Failed to create payment information"
+                                );
+                              }
+                              const paymentId = this.lastID;
+                              res.status(201).json({
+                                id: bookingId,
+                                userId,
+                                consultantId,
+                                date,
+                                time,
+                                status,
+                                paymentId,
+                              });
+                            }
+                          );
+                        }
                       );
                     }
-
-                    const bookingId = this.lastID;
-                    res
-                      .status(201)
-                      .json({
-                        id: bookingId,
-                        userId,
-                        consultantId,
-                        date,
-                        time,
-                        status,
-                      });
-                  }
-                );
-              }
-            );
+                  );
+                }
+              );
+            } catch (parseError) {
+              console.error("Error parsing availability data:", parseError)
+              return res
+                .status(500)
+                .json({ message: "Failed to parse availability data" });
+            }
           }
         );
       }
     );
+
+// API to Fetch Consultant Availability
+app.get("/api/consultant/:consultantId/availability", (req, res) => {
+  const consultantId = req.params.consultantId;
+  const db = getDb();
+
+  db.get(
+    "SELECT availability FROM users WHERE id = ? AND isConsultant = 1",
+    [consultantId],
+    (err, consultant) => {
+      if (err) {
+        return handleDatabaseError(
+          res,
+          err,
+          "Failed to retrieve consultant availability"
+        );
+      }
+
+      if (!consultant) {
+        return res.status(404).json({ message: "Consultant not found" });
+      }
+
+      try {
+        const availability = JSON.parse(consultant.availability);
+        res.json(availability);
+      } catch (error) {
+        return res
+          .status(500)
+          .json({ message: "Failed to parse availability data" });
+      }
+    }
+  );
+});
 
     // Booking acceptance route
     app.put("/api/bookings/:id/accept", authenticateToken, (req, res) => {
@@ -957,7 +1154,7 @@ app.post(
     app.put("/api/bookings/:id/cancel", authenticateToken, (req, res) => {
       const bookingId = req.params.id;
       const db = getDb();
-
+  
       db.get(
         "SELECT consultantId, date, time FROM bookings WHERE id = ?",
         [bookingId],
@@ -969,11 +1166,11 @@ app.post(
               "Failed to retrieve booking details"
             );
           }
-
+  
           if (!booking) {
             return res.status(404).json({ message: "Booking not found" });
           }
-
+  
           db.run(
             "UPDATE bookings SET status = 'canceled' WHERE id = ?",
             [bookingId],
@@ -988,7 +1185,61 @@ app.post(
               if (this.changes === 0) {
                 return res.status(404).json({ message: "Booking not found" });
               }
-              res.json({ message: "Booking accepted successfully" });
+             //Refund calculation logic
+              db.get(
+                "SELECT id, amount FROM payments WHERE bookingId = ?",
+                [bookingId],
+                (err, payment) => {
+                  if (err) {
+                    return handleDatabaseError(
+                      res,
+                      err,
+                      "Failed to fetch payment details"
+                    );
+                  }
+                  if (payment) {
+                    // Calculating the refund amount and inserting the details
+                    const refundAmount = payment.amount * 0.9; // Deducting a 10% cancellation fee
+  
+                    db.run(
+                      "INSERT INTO refunds (paymentId, refundDate, refundAmount, reason) VALUES (?, ?, ?, ?)",
+                      [payment.id, new Date().toISOString(), refundAmount, "Booking cancellation"],
+                      function (err) {
+                        if (err) {
+                          return handleDatabaseError(
+                            res,
+                            err,
+                            "Failed to process refund"
+                          );
+                        }
+                        res.json({ message: "Booking canceled successfully", refundId: this.lastID });
+                      });
+  
+                    // Update the payment status to refunded after the refund amount calculation
+                    db.run(
+                      "UPDATE payments SET status = 'refunded' WHERE bookingId = ?",
+                      [bookingId],
+                      function (err) {
+                        if (err) {
+                          return handleDatabaseError(
+                            res,
+                            err,
+                            "Failed to update payment status"
+                          );
+                        }
+                        if (this.changes === 0) {
+                          return res
+                            .status(404)
+                            .json({ message: "Payment not found" });
+                        }
+  
+                      }
+                    );
+                  } else{
+                    return res.status(404).json({ message: "Payment not found" });
+                  }
+                }
+              );
             }
           );
         }
@@ -1301,7 +1552,7 @@ app.post(
     app.get("/api/admin/consultants", authenticateAdmin, (req, res) => {
       const db = getDb();
 
-      db.all("SELECT * FROM consultants", [], (err, consultants) => {
+      db.all("SELECT * FROM users WHERE isConsultant = 1", [], (err, consultants) => {
         if (err) {
           return handleDatabaseError(
             res,
@@ -1378,7 +1629,7 @@ app.post(
             return handleDatabaseError(res, err, "Failed to check user role");
           }
 
-          if (!user || user.isConsultant !== "1") {
+          if (!user || user.isConsultant !== 1) {
             return res
               .status(403)
               .json({ message: "User is not a consultant" });
@@ -1386,7 +1637,7 @@ app.post(
 
           // Get the consultant's bookings
           db.all(
-            "SELECT * FROM bookings WHERE consultantId IN (SELECT id FROM consultants WHERE userId = ?)",
+            "SELECT * FROM bookings WHERE consultantId = ?",
             [userId],
             (err, bookings) => {
               if (err) {
@@ -1405,17 +1656,17 @@ app.post(
 
     app.get("/api/getDetails/:bookingId", authenticateToken, (req, res) => {
       const { bookingId } = req.params;
-    
+
       // Validate that bookingId is a valid integer
       if (isNaN(bookingId)) {
         return res.status(400).json({ error: "Invalid booking ID" });
       }
-    
+
       const db = getDb();
-    
+
       db.get(
         `SELECT u.id, u.fullName, u.email, u.password, u.role, u.isConsultant, u.phone,
-           u.bloodGroup, u.medicalHistory, u.currentPrescriptions, 
+           u.bloodGroup, u.medicalHistory, u.currentPrescriptions,
            u.areasOfExpertise, u.isApproved, u.profilePicture, u.speciality, u.availability, u.bankAccount, u.qualification, u.bio
          FROM users u
          JOIN bookings b ON u.id = b.userId
@@ -1425,11 +1676,11 @@ app.post(
           if (err) {
             return handleDatabaseError(res, err, "Failed to retrieve user details");
           }
-    
+
           if (!userDetails) {
             return res.status(404).json({ error: "Booking not found" });
           }
-    
+
           // Fetch all health records related to the user
           db.all(
             `SELECT hr.medicalHistory, hr.ongoingTreatments, hr.prescriptions
@@ -1440,7 +1691,7 @@ app.post(
               if (err) {
                 return handleDatabaseError(res, err, "Failed to retrieve health records");
               }
-    
+
               // Return user details along with their health records
               res.json({
                 user: userDetails,
@@ -1451,8 +1702,8 @@ app.post(
         }
       );
     });
-    
-    
+
+
 
     // Consultant approval route for admin
     app.put(
@@ -1493,7 +1744,7 @@ app.post(
 
         // Verify if the requesting user is the consultant or admin
         db.get(
-          "SELECT userId FROM consultants WHERE id = ?",
+          "SELECT isConsultant, id FROM users WHERE id = ?",
           [consultantId],
           (err, consultant) => {
             if (err) {
@@ -1504,8 +1755,8 @@ app.post(
               );
             }
 
-            if (!consultant) {
-              return res.status(404).json({ message: "Consultant not found" });
+            if (!consultant || consultant.isConsultant !== 1) {
+              return res.status(404).json({ message: "Consultant not found or is not a consultant" });
             }
 
             //Check If consultant or Admin is requesting bookings
@@ -1555,7 +1806,6 @@ app.post(
   .catch((error) => {
     console.error("Failed to initialize database:", error);
   });
-
 // File: frontend/App.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link, Navigate } from 'react-router-dom';
@@ -2213,7 +2463,6 @@ export default [
 // File: frontend/src/App.css
 /* removed css */
 // File: frontend/src/App.jsx
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
@@ -2242,113 +2491,114 @@ import './App.css';
 import './index.css'; //Importing index.css to solve global styling issues
 
 function App() {
-  // Use state to manage login status, user role, and consultant status
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userRole, setUserRole] = useState('guest');
-  const [isConsultant, setIsConsultant] = useState(() => { // Initialize with boolean
-    const storedValue = localStorage.getItem('isConsultant');
-    return storedValue === 'true'; // Convert string to boolean
-  });
-  const [isApproved, setIsApproved] = useState(false);
-  const [profilePicture, setProfilePicture] = useState(''); // State to store profile picture
+    // Use state to manage login status, user role, and consultant status
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [userRole, setUserRole] = useState('guest');
+    const [isConsultant, setIsConsultant] = useState(() => { // Initialize with boolean
+        const storedValue = localStorage.getItem('isConsultant');
+        return storedValue === 'true'; // Convert string to boolean
+    });
+    const [isApproved, setIsApproved] = useState(false);
+    const [profilePicture, setProfilePicture] = useState(''); // State to store profile picture
 
-  // Function to update state from localStorage
-  const updateStateFromLocalStorage = useCallback(() => {
-    setIsLoggedIn(localStorage.getItem('token') !== null);
-    setUserRole(localStorage.getItem('userRole') || 'guest');
-    setIsConsultant(localStorage.getItem('isConsultant') === 'true');
-    setIsApproved(localStorage.getItem('isApproved') === 'true');
-  }, []);
+    // Function to update state from localStorage
+    const updateStateFromLocalStorage = useCallback(() => {
+        setIsLoggedIn(localStorage.getItem('token') !== null);
+        setUserRole(localStorage.getItem('userRole') || 'guest');
+        setIsConsultant(localStorage.getItem('isConsultant') === 'true');
+        setIsApproved(localStorage.getItem('isApproved') === 'true');
+    }, []);
 
-  useEffect(() => {
-    // Call the function on component mount
-    updateStateFromLocalStorage();
+    useEffect(() => {
+        // Call the function on component mount
+        updateStateFromLocalStorage();
 
-    // Set up a listener for localStorage changes
-    window.addEventListener('storage', updateStateFromLocalStorage);
+        // Set up a listener for localStorage changes
+        window.addEventListener('storage', updateStateFromLocalStorage);
 
-    // Clean up the listener when the component unmounts
-    return () => {
-      window.removeEventListener('storage', updateStateFromLocalStorage);
-    };
-  }, [updateStateFromLocalStorage]);
+        // Clean up the listener when the component unmounts
+        return () => {
+            window.removeEventListener('storage', updateStateFromLocalStorage);
+        };
+    }, [updateStateFromLocalStorage]);
 
-  // Callback function to update login state and user info
-  const handleLoginSuccess = useCallback((role, isConsultant, isApproved) => {
-    setIsLoggedIn(true);
-    setUserRole(role);
-    setIsConsultant(isConsultant); // Ensure boolean value
-    setIsApproved(Boolean(isApproved));   // Ensure boolean value
-  }, []);
+    // Callback function to update login state and user info
+    const handleLoginSuccess = useCallback((role, isConsultant, isApproved, profilePicture) => {
+        setIsLoggedIn(true);
+        setUserRole(role);
+        setIsConsultant(isConsultant); // Ensure boolean value
+        setIsApproved(Boolean(isApproved));   // Ensure boolean value
+        setProfilePicture(profilePicture);
+    }, []);
 
-  // Callback function to handle logout
-  const handleLogout = useCallback(() => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('isConsultant');
-    localStorage.removeItem('isApproved');
-    setIsLoggedIn(false);
-    setUserRole('guest');
-    setIsConsultant(false);
-    setIsApproved(false);
-  }, []);
+    // Callback function to handle logout
+    const handleLogout = useCallback(() => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('isConsultant');
+        localStorage.removeItem('isApproved');
+        setIsLoggedIn(false);
+        setUserRole('guest');
+        setIsConsultant(false);
+        setIsApproved(false);
+        setProfilePicture(''); // Clear profile picture on logout
+    }, []);
 
-  return (
-    <Router>
-      <Navbar isLoggedIn={isLoggedIn} userRole={userRole} isConsultant={isConsultant} handleLogout={handleLogout} profilePicture={profilePicture} />
-      <div className="min-h-screen">
-        <Routes>
-          <Route path="/" element={<Homepage />} />
-          <Route path="/aboutus" element={<AboutUs />} />
-          <Route path="/contactus" element={<ContactUs />} />
-          <Route path="/privacypolicy" element={<PrivacyPolicy />} />
-          <Route path="/termsofservice" element={<TermsOfService />} />
-          <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} setUserRole={setUserRole} setIsConsultant={setIsConsultant} setIsApproved={setIsApproved} onLoginSuccess={handleLoginSuccess} setProfilePicture={setProfilePicture} />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/userprofile" element={<UserProfile setProfilePicture={setProfilePicture} />} />
+    return (
+        <Router>
+            <Navbar isLoggedIn={isLoggedIn} userRole={userRole} isConsultant={isConsultant} handleLogout={handleLogout} profilePicture={profilePicture} />
+            <div className="min-h-screen">
+                <Routes>
+                    <Route path="/" element={<Homepage />} />
+                    <Route path="/aboutus" element={<AboutUs />} />
+                    <Route path="/contactus" element={<ContactUs />} />
+                    <Route path="/privacypolicy" element={<PrivacyPolicy />} />
+                    <Route path="/termsofservice" element={<TermsOfService />} />
+                    <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} setUserRole={setUserRole} setIsConsultant={setIsConsultant} setIsApproved={setIsApproved} onLoginSuccess={handleLoginSuccess} setProfilePicture={setProfilePicture} />} />
+                    <Route path="/register" element={<Register />} />
+                    <Route path="/userprofile" element={<UserProfile setProfilePicture={setProfilePicture} />} />
 
-          {/* User routes, require login and user role */}
-          {isLoggedIn && userRole === 'user' && (
-            <>
-              <Route path="/consultantsearch" element={<ConsultantSearch />} />
-              <Route path="/consultantdetails/:id" element={<ConsultantDetails />} />
-              <Route path="/booking/:id" element={<Booking />} />
-              <Route path="/consultationdashboard" element={<ConsultationDashboard />} />
-              <Route path="/healthrecords" element={<HealthRecords />} />
-              <Route path="/messaging" element={<Messaging />} />
-              <Route path="/payment" element={<Payment />} />
-              <Route path="/review/:id" element={<Review />} />
-            </>
-          )}
+                    {/* User routes, require login and user role */}
+                    {isLoggedIn && userRole === 'user' && (
+                        <>
+                            <Route path="/consultantsearch" element={<ConsultantSearch />} />
+                            <Route path="/consultantdetails/:id" element={<ConsultantDetails />} />
+                            <Route path="/booking/:id" element={<Booking />} />
+                            <Route path="/consultationdashboard" element={<ConsultationDashboard />} />
+                            <Route path="/healthrecords" element={<HealthRecords />} />
+                            <Route path="/messaging" element={<Messaging />} />
+                            <Route path="/payment" element={<Payment />} />
+                            <Route path="/review/:id" element={<Review />} />
+                        </>
+                    )}
 
-          {/* Consultant profile and dashboard only accessible if logged in as consultant, and approved*/}
-          {isLoggedIn && userRole === 'consultant' && isApproved ? (
-            <>
-              <Route path="/consultantprofile" element={<ConsultantProfile />} />
-              <Route path="/consultantdashboard" element={<ConsultantDashboardPage />} />
-            </>
-          ) : (isLoggedIn && userRole === 'consultant') ? (
-            <Route path="/consultantprofile" element={<Navigate to="/" />} />
-          ) : null}
+                    {/* Consultant profile and dashboard only accessible if logged in as consultant, and approved*/}
+                    {isLoggedIn && userRole === 'consultant' && isApproved ? (
+                        <>
+                            <Route path="/consultantprofile" element={<ConsultantProfile />} />
+                            <Route path="/consultantdashboard" element={<ConsultantDashboardPage />} />
+                        </>
+                    ) : (isLoggedIn && userRole === 'consultant') ? (
+                        <Route path="/consultantprofile" element={<Navigate to="/" />} />
+                    ) : null}
 
-          {/* Admin dashboard route, require login and admin role */}
-          {isLoggedIn && userRole === 'admin' ? (
-            <Route path="/admindashboard" element={<AdminDashboard />} />
-          ) : (
-            // Redirect to login page if not an admin or not logged in
-            <Route path="/admindashboard" element={<Navigate to="/login" />} />
-          )}
+                    {/* Admin dashboard route, require login and admin role */}
+                    {isLoggedIn && userRole === 'admin' ? (
+                        <Route path="/admindashboard" element={<AdminDashboard />} />
+                    ) : (
+                        // Redirect to login page if not an admin or not logged in
+                        <Route path="/admindashboard" element={<Navigate to="/login" />} />
+                    )}
 
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </div>
-      <Footer />
-    </Router>
-  );
+                    <Route path="*" element={<NotFound />} />
+                </Routes>
+            </div>
+            <Footer />
+        </Router>
+    );
 }
 
 export default App;
-
 // File: frontend/src/components/Footer.jsx
 
 import { Home, Phone, Mail, Link } from 'lucide-react';
@@ -2627,6 +2877,216 @@ const Navbar = ({ isLoggedIn, userRole, isConsultant, handleLogout }) => {
 
 export default Navbar;
 
+// File: frontend/src/components/RegisterForm.jsx
+import React, { useState } from 'react';
+import {
+    TextField,
+    Grid,
+    FormControl,
+    InputLabel,
+    Typography,
+    Box,
+    Switch,
+    FormGroup,
+    FormControlLabel,
+    Select,
+    MenuItem,
+    Input,
+    List,
+    ListItem,
+    ListItemText,
+    Checkbox,
+    ListItemSecondaryAction,
+    IconButton,
+} from '@mui/material';
+import { TimePicker } from '@mui/x-date-pickers';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+
+import dayjs from 'dayjs';
+const ITEM_HEIGHT = 48;
+const ITEM_PADDING_TOP = 8;
+const MenuProps = {
+  PaperProps: {
+    style: {
+      maxHeight: ITEM_HEIGHT * 4.5 + ITEM_PADDING_TOP,
+      width: 200,
+    },
+  },
+};
+
+const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const RegisterForm = ({ formData, setFormData, role }) => {
+    const handleInputChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const [selectedDays, setSelectedDays] = useState([]);
+
+    const handleDayToggle = (day) => {
+        setSelectedDays(prevSelectedDays => {
+            if (prevSelectedDays.includes(day)) {
+                return prevSelectedDays.filter(d => d !== day);
+            } else {
+                return [...prevSelectedDays, day];
+            }
+        });
+    };
+
+    const [startTime, setStartTime] = useState(null);
+    const [endTime, setEndTime] = useState(null);
+    const [useSameTime, setUseSameTime] = useState(false);
+
+    const handleTimeChange = (newTime, setter) => {
+        setter(newTime);
+    };
+
+    const updateAvailability = () => {
+        let availabilityData = {};
+        selectedDays.forEach(day => {
+            availabilityData[day] = {
+                startTime: startTime ? startTime.format('HH:mm') : null,
+                endTime: endTime ? endTime.format('HH:mm') : null,
+            };
+        });
+        setFormData({ ...formData, availability: JSON.stringify(availabilityData) });
+    };
+
+    const handleUseSameTimeChange = (event) => {
+        setUseSameTime(event.target.checked);
+    };
+    React.useEffect(() => {
+        updateAvailability();
+    }, [startTime, endTime, selectedDays])
+
+    return (
+        <>
+            {/* Basic Information */}
+            <Grid container spacing={2}>
+
+                {role === 'consultant' && (
+                    <>
+                        <Grid item xs={12}>
+                            <TextField
+                                fullWidth
+                                label="Bio"
+                                name="bio"
+                                multiline
+                                rows={4}
+                                value={formData.bio}
+                                onChange={handleInputChange}
+                            />
+                        </Grid>
+                        <Grid item xs={12}>
+                            <TextField
+                                fullWidth
+                                label="Qualification"
+                                name="qualification"
+                                value={formData.qualification}
+                                onChange={handleInputChange}
+                            />
+                        </Grid>
+                        <Grid item xs={12}>
+                            <TextField
+                                fullWidth
+                                label="Areas of Expertise"
+                                name="areasOfExpertise"
+                                value={formData.areasOfExpertise}
+                                onChange={handleInputChange}
+                            />
+                        </Grid>
+                        <Grid item xs={12}>
+                            <TextField
+                                fullWidth
+                                label="Speciality"
+                                name="speciality"
+                                value={formData.speciality}
+                                onChange={handleInputChange}
+                            />
+                        </Grid>
+                        <Grid item xs={12} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                Availability
+                            </Grid>
+                        <Grid item xs={12}>
+                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                 <TimePicker
+                                      label="Start Time"
+                                      value={startTime}
+                                      onChange={(newTime) => handleTimeChange(newTime, setStartTime)}
+                                       ampm={false}
+                                       minutesStep={60}
+                                       renderInput={(params) => <TextField {...params} fullWidth />}
+                                  />
+                            </LocalizationProvider>
+                        </Grid>
+                         <Grid item xs={12}>
+                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                 <TimePicker
+                                      label="End Time"
+                                      value={endTime}
+                                      onChange={(newTime) => handleTimeChange(newTime, setEndTime)}
+                                       ampm={false}
+                                       minutesStep={60}
+                                       renderInput={(params) => <TextField {...params} fullWidth />}
+                                  />
+                            </LocalizationProvider>
+                        </Grid>
+                        <Grid item xs={12} >
+                             <Typography component="legend">Select Days</Typography>
+                            <FormGroup row>
+                                {daysOfWeek.map((day) => (
+                                    <FormControlLabel
+                                        key={day}
+                                        control={<Switch checked={selectedDays.includes(day)} onChange={() => handleDayToggle(day)} name={day} />}
+                                        label={day}
+                                    />
+                                ))}
+                            </FormGroup>
+                        </Grid>
+                    </>
+                )}
+                {role === 'user' && (
+                    <>
+                        <Grid item xs={12} sm={6}>
+                            <TextField
+                                fullWidth
+                                label="Blood Group"
+                                name="bloodGroup"
+                                value={formData.bloodGroup}
+                                onChange={handleInputChange}
+                            />
+                        </Grid>
+                        <Grid item xs={12}>
+                            <TextField
+                                fullWidth
+                                label="Medical History"
+                                name="medicalHistory"
+                                multiline
+                                rows={4}
+                                value={formData.medicalHistory}
+                                onChange={handleInputChange}
+                            />
+                        </Grid>
+                        <Grid item xs={12}>
+                            <TextField
+                                fullWidth
+                                label="Current Prescriptions"
+                                name="currentPrescriptions"
+                                multiline
+                                rows={4}
+                                value={formData.currentPrescriptions}
+                                onChange={handleInputChange}
+                            />
+                        </Grid>
+                    </>
+                )}
+            </Grid>
+        </>
+    );
+};
+
+export default RegisterForm;
 // File: frontend/src/index.css
 @import 'tailwindcss';
 
@@ -3020,157 +3480,283 @@ export default AdminDashboard;
 
 // File: frontend/src/pages/Booking.jsx
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { getConsultantById, createBooking } from '../utils/api';
+import { useParams, useNavigate } from 'react-router-dom';
+import { getConsultantById, createBooking, getConsultantBookingsById } from '../utils/api';
+import {
+    Container,
+    Typography,
+    Grid,
+    TextField,
+    Button,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    Alert,
+    CircularProgress,
+} from '@mui/material';
+import dayjs from 'dayjs';
+import 'dayjs/locale/en'; // Import the locale
 
 const Booking = () => {
-  const { id } = useParams();
-  const [consultant, setConsultant] = useState(null);
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
-  const [paymentInfo, setPaymentInfo] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [bookingSuccess, setBookingSuccess] = useState(false);
+    const { id } = useParams();
+    const [consultant, setConsultant] = useState(null);
+    const [selectedDate, setSelectedDate] = useState(dayjs());
+    const [time, setTime] = useState('');
+    const [paymentInfo, setPaymentInfo] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [bookingSuccess, setBookingSuccess] = useState(false);
+    const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchConsultant = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const data = await getConsultantById(id);
-        setConsultant(data);
-      } catch (err) {
-        setError('Failed to retrieve consultant details. Please try again.');
-        setConsultant(null);
-        console.error('Failed to fetch consultant:', err);
-      } finally {
-        setLoading(false);
-      }
+    const [availableTimes, setAvailableTimes] = useState({}); // dynamic times
+    const [bookings, setBookings] = useState([]);
+    const [isTimeSlotAvailable, setIsTimeSlotAvailable] = useState(true);
+
+    const handleAcceptBooking = async (bookingId) => {
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                setError("Authentication required. Please login as an admin.");
+                return;
+            }
+
+            // await acceptBooking(token, bookingId);
+
+            // Update the bookings state to reflect the accepted booking
+            setBookings(
+                bookings.map((booking) =>
+                    booking.id === bookingId
+                        ? { ...booking, status: "accepted" }
+                        : booking
+                )
+            );
+        } catch (err) {
+            setError("Failed to accept booking. Please try again.");
+            console.error("Failed to accept booking:", err);
+        }
     };
 
-    fetchConsultant();
-  }, [id]);
+    const isTimeSlotBooked = (date, time) => {
+        return bookings.some(
+            (booking) => booking.date === date && booking.time === time
+        );
+    };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    setBookingSuccess(false);
+    useEffect(() => {
+        const fetchConsultant = async () => {
+            setLoading(true);
+            setError('');
+            try {
+                const data = await getConsultantById(id);
+                setConsultant(data);
+            } catch (err) {
+                setError('Failed to retrieve consultant details. Please try again.');
+                setConsultant(null);
+                console.error('Failed to fetch consultant:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchConsultant();
+    }, [id]);
 
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setError('Authentication required. Please login.');
-        return;
+    useEffect(() => {
+      const fetchConsultantAvailability = async () => {
+          try {
+              const token = localStorage.getItem('token');
+              const data = await getConsultantBookingsById(token, id);
+              setBookings(data);
+  
+              const response = await fetch(
+                  `http://localhost:5555/api/consultant/${id}/availability`,
+                  {
+                      method: "GET",
+                      headers: {
+                          "Content-Type": "application/json",
+                      },
+                  }
+              );
+              if (!response.ok) {
+                  throw new Error(`HTTP error! Status: ${response.status}`);
+              }
+              const data_available = await response.json();
+              setAvailableTimes(data_available);
+              console.log("Available Times:", data_available);  // CHECKPOINT
+          } catch (parseError) {
+              setError("Failed to load data from the server");
+              console.error(parseError);
+          }
+      };
+      fetchConsultantAvailability();
+  }, [id, selectedDate]);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        setBookingSuccess(false);
+
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                setError('Authentication required. Please login.');
+                return;
+            }
+
+            await createBooking(token, id, selectedDate.format('YYYY-MM-DD'), time);
+            setBookingSuccess(true);
+            setTimeout(() => {
+                navigate('/consultationdashboard');
+            }, 2000);
+        } catch (err) {
+            setError('Failed to create booking. Please try again.');
+            console.error('Booking creation failed:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+    const handleDateChange = (date) => {
+        setSelectedDate(date);
+        setIsTimeSlotAvailable(true); // Reset the availability check when date changes
+    };
+
+    const generateTimeSlots = () => {
+      if (!consultant || !availableTimes) return [];
+  
+      const bookingDay = selectedDate.format('dddd'); // Get full day name (e.g., "Monday")
+      console.log("Booking Day:", bookingDay);
+  
+      if (!availableTimes[bookingDay]) {
+          console.log("No availability for this day.");
+          return [];
       }
-
-      await createBooking(token, id, date, time);
-      setBookingSuccess(true);
-    } catch (err) {
-      setError('Failed to create booking. Please try again.');
-      console.error('Booking creation failed:', err);
-    } finally {
-      setLoading(false);
-    }
+  
+      const { startTime, endTime } = availableTimes[bookingDay];
+      if (!startTime || !endTime) {
+          console.log("Invalid time range.");
+          return [];
+      }
+  
+      // Create proper dayjs objects with date and time
+      const start = dayjs(`${selectedDate.format('YYYY-MM-DD')} ${startTime}`, "YYYY-MM-DD HH:mm");
+      const end = dayjs(`${selectedDate.format('YYYY-MM-DD')} ${endTime}`, "YYYY-MM-DD HH:mm");
+  
+      if (!start.isValid() || !end.isValid()) {
+          console.log("Invalid dayjs objects for time parsing.");
+          return [];
+      }
+  
+      let currentTime = start;
+      const timeSlots = [];
+  
+      while (currentTime.isBefore(end)) {
+          const slotStart = currentTime.format('HH:mm');
+          currentTime = currentTime.add(1, 'hour'); // Increment by 1 hour
+          const slotEnd = currentTime.format('HH:mm');
+  
+          if (currentTime.isAfter(end)) break; // Prevent adding a slot that exceeds the end time
+  
+          timeSlots.push(`${slotStart}-${slotEnd}`);
+      }
+  
+      console.log("Generated Time Slots:", timeSlots);
+      return timeSlots;
   };
+  
 
-  if (loading) {
-    return <div className="text-center">Loading booking information...</div>;
-  }
+    if (loading) {
+        return (
+            <Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <CircularProgress />
+            </Container>
+        );
+    }
 
-  if (error) {
-    return <div className="text-center text-red-500">{error}</div>;
-  }
+    if (error) {
+        return (
+            <Container>
+                <Alert severity="error">{error}</Alert>
+            </Container>
+        );
+    }
 
-  if (!consultant) {
-    return <div className="text-center">Consultant not found.</div>;
-  }
+    if (!consultant) {
+        return (
+            <Container>
+                <Alert severity="error">Consultant not found.</Alert>
+            </Container>
+        );
+    }
 
-  return (
-    <div className="min-h-screen bg-gray-100 p-10">
-      {/* Consultant Information */}
-      <section className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-8 mb-8">
-        <h2 className="text-3xl font-semibold text-gray-800 mb-2">
-          Booking Appointment with {consultant.specialty}
-        </h2>
-        <p className="text-xl text-gray-700">
-          {consultant.specialty}
-        </p>
-      </section>
+    return (
+        <Container maxWidth="md" sx={{ mt: 4 }}>
+            <Typography variant="h4" component="h1" gutterBottom>
+                Book Appointment with Dr. {consultant.speciality}
+            </Typography>
 
-      {/* Booking Form */}
-      <section className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-8">
-        <form onSubmit={handleSubmit}>
-          {/* Date and Time Selection */}
-          <div className="mb-6">
-            <label htmlFor="date" className="block text-gray-700 text-sm font-bold mb-2">
-              Select Date:
-            </label>
-            <input
-              type="date"
-              id="date"
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              required
-            />
-          </div>
+            <form onSubmit={handleSubmit}>
+                <Grid container spacing={3}>
+                    <Grid item xs={12}>
+                        <TextField
+                            label="Selected Date"
+                            type="date"
+                            value={selectedDate.format('YYYY-MM-DD')}
+                            onChange={(e) => handleDateChange(dayjs(e.target.value))}
+                            fullWidth
+                            InputLabelProps={{
+                                shrink: true,
+                            }}
+                        />
+                    </Grid>
+                    <Grid item xs={12}>
+                        <FormControl fullWidth>
+                            <InputLabel id="time-select-label">Select Time Slot</InputLabel>
+                            <Select
+                                labelId="time-select-label"
+                                id="time"
+                                value={time}
+                                label="Select Time Slot"
+                                onChange={(e) => setTime(e.target.value)}
+                                required
+                            >
+                                {generateTimeSlots().map((slot) => (
+                                        <MenuItem key={slot} value={slot}>
+                                            {slot}
+                                        </MenuItem>
+                                    ))}
+                            </Select>
+                            {!isTimeSlotAvailable && (
+                                <Alert severity="error">This time slot is already booked. Please select another time.</Alert>
+                            )}
 
-          <div className="mb-6">
-            <label htmlFor="time" className="block text-gray-700 text-sm font-bold mb-2">
-              Select Time:
-            </label>
-            <select
-              id="time"
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              required
-            >
-              <option value="">Select a time</option>
-              <option value="09:00">9:00 AM</option>
-              <option value="10:00">10:00 AM</option>
-              <option value="11:00">11:00 AM</option>
-              <option value="14:00">2:00 PM</option>
-              <option value="15:00">3:00 PM</option>
-              <option value="16:00">4:00 PM</option>
-            </select>
-          </div>
+                        </FormControl>
+                    </Grid>
+                    <Grid item xs={12}>
+                        <TextField
+                            label="Payment Information"
+                            placeholder="Enter Credit Card Number"
+                            fullWidth
+                            required
+                            value={paymentInfo}
+                            onChange={(e) => setPaymentInfo(e.target.value)}
+                        />
+                    </Grid>
+                    <Grid item xs={12}>
+                        <Button type="submit" variant="contained" color="primary" fullWidth>
+                            Confirm Booking
+                        </Button>
+                    </Grid>
+                </Grid>
+            </form>
 
-          {/* Payment Information (Simplified) */}
-          <div className="mb-6">
-            <label htmlFor="paymentInfo" className="block text-gray-700 text-sm font-bold mb-2">
-              Payment Information:
-            </label>
-            <input
-              type="text"
-              id="paymentInfo"
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              placeholder="Enter Credit Card Number"
-              value={paymentInfo}
-              onChange={(e) => setPaymentInfo(e.target.value)}
-              required
-            />
-          </div>
-
-          {/* Confirmation Button */}
-          <button
-            type="submit"
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-colors duration-300"
-          >
-            Confirm Booking
-          </button>
-        </form>
-
-        {bookingSuccess && (
-          <div className="mt-4 text-green-500">
-            Booking created successfully!
-          </div>
-        )}
-      </section>
-    </div>
-  );
+            {bookingSuccess && (
+                <Alert severity="success" sx={{ mt: 3 }}>
+                    Booking created successfully! Redirecting to dashboard...
+                </Alert>
+            )}
+        </Container>
+    );
 };
 
 export default Booking;
@@ -3549,95 +4135,155 @@ export default ConsultantDashboardPage;
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getConsultantById } from '../utils/api';
+import {
+    Container,
+    Typography,
+    Grid,
+    Card,
+    CardContent,
+    CardMedia,
+    Box,
+    Chip,
+    Avatar,
+    CircularProgress,
+    Alert,
+    Button,
+} from '@mui/material';
+import { AccessTime, LocationOn, VerifiedUser } from '@mui/icons-material';
+import { styled } from '@mui/system';
+
+const StyledCard = styled(Card)(({ theme }) => ({
+    borderRadius: theme.spacing(2),
+    // boxShadow: theme.shadows[5],
+    transition: 'transform 0.3s ease-in-out',
+    '&:hover': {
+        transform: 'scale(1.03)',
+    },
+}));
 
 const ConsultantDetails = () => {
-  const { id } = useParams();
-  const [consultant, setConsultant] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+    const { id } = useParams();
+    const [consultant, setConsultant] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
 
-  useEffect(() => {
-    const fetchConsultant = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const data = await getConsultantById(id);
-        setConsultant(data);
-      } catch (err) {
-        setError('Failed to retrieve consultant details. Please try again.');
-        setConsultant(null);
-        console.error('Failed to fetch consultant:', err);
-      } finally {
-        setLoading(false);
-      }
+    useEffect(() => {
+        const fetchConsultant = async () => {
+            setLoading(true);
+            setError('');
+            try {
+                const data = await getConsultantById(id);
+                setConsultant(data);
+            } catch (err) {
+                setError('Failed to retrieve consultant details. Please try again.');
+                setConsultant(null);
+                console.error('Failed to fetch consultant:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchConsultant();
+    }, [id]);
+
+    if (loading) {
+        return (
+            <Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+                <CircularProgress />
+            </Container>
+        );
+    }
+
+    if (error) {
+        return (
+            <Container>
+                <Alert severity="error">{error}</Alert>
+            </Container>
+        );
+    }
+
+    if (!consultant) {
+        return (
+            <Container>
+                <Alert severity="error">Consultant not found.</Alert>
+            </Container>
+        );
+    }
+
+    const parseAvailability = (availability) => {
+        try {
+            return JSON.parse(availability);
+        } catch (e) {
+            console.error("Failed to parse availability:", availability);
+            return {};
+        }
     };
 
-    fetchConsultant();
-  }, [id]);
-
-  if (loading) {
-    return <div className="text-center">Loading consultant details...</div>;
-  }
-
-  if (error) {
-    return <div className="text-center text-red-500">{error}</div>;
-  }
-
-  if (!consultant) {
-    return <div className="text-center">Consultant not found.</div>;
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-100 p-10">
-      {/* Consultant Details */}
-      <section className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
-        {/* Consultant Image */}
-        <img
-          className="w-full h-96 object-cover"
-          src={consultant.imageUrl || "https://placehold.co/800x600"}
-          alt={consultant.specialty}
-        />
-
-        <div className="p-8">
-          {/* Consultant Name and Specialty */}
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">
-            {consultant.specialty}
-          </h2>
-          <p className="text-xl text-gray-700 mb-4">
-            Specialty: {consultant.specialty}
-          </p>
-
-          {/* Consultant Bio */}
-          <div className="mb-6">
-            <h3 className="text-2xl font-semibold text-gray-800 mb-2">
-              About
-            </h3>
-            <p className="text-gray-700 leading-relaxed">
-              {consultant.qualifications}
-            </p>
-          </div>
-
-          {/* Availability */}
-          <div className="mb-6">
-            <h3 className="text-2xl font-semibold text-gray-800 mb-2">
-              Availability
-            </h3>
-            <p className="text-gray-700">
-              {consultant.availability}
-            </p>
-          </div>
-
-          {/* Book Appointment Button */}
-          <Link
-            to={`/booking/${consultant.id}`}
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-colors duration-300 inline-block"
-          >
-            Book Appointment
-          </Link>
-        </div>
-      </section>
-    </div>
-  );
+    return (
+      
+        <Container maxWidth="md" sx={{ mt: 5, mb: 4 }}>
+            <StyledCard>
+                <CardMedia
+                    component="img"
+                    height="300"
+                    image={consultant.profilePicture || "https://placehold.co/600x400"}
+                    alt={consultant.fullName}
+                    sx={{ objectFit: 'cover' }}
+                />
+                <CardContent>
+                    <Grid container spacing={3} alignItems="center">
+                        <Grid item xs={12} md={8}>
+                            <Typography variant="h5" component="h2" gutterBottom>
+                                {consultant.fullName}
+                            </Typography>
+                            <Typography variant="subtitle1" color="textSecondary">
+                                <Chip avatar={<VerifiedUser />} label={consultant.speciality} size="small" />
+                            </Typography>
+                        </Grid>
+                        <Grid item xs={12} md={4} sx={{ textAlign: 'right' }}>
+                            <Button
+                                component={Link}
+                                to={`/booking/${consultant.id}`}
+                                variant="contained"
+                                color="primary"
+                                size="large"
+                            >
+                                Book Appointment
+                            </Button>
+                        </Grid>
+                        <Grid item xs={12}>
+                            <Typography variant="h6">About</Typography>
+                            <Typography variant="body2" paragraph>
+                                {consultant.bio}
+                            </Typography>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                            <Typography variant="subtitle2">Qualifications</Typography>
+                            <Typography variant="body2">{consultant.qualification}</Typography>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                            <Typography variant="subtitle2">Areas of Expertise</Typography>
+                            <Typography variant="body2">{consultant.areasOfExpertise}</Typography>
+                        </Grid>
+                        <Grid item xs={12}>
+                            <Typography variant="h6">Availability</Typography>
+                            <Box sx={{ mt: 1 }}>
+                                {consultant.availability ? Object.entries(parseAvailability(consultant.availability)).map(([day, { startTime, endTime }]) => (
+                                    <Box key={day} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                                        <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{day}:</Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                            <AccessTime sx={{ mr: 0.5 }} fontSize="small" />
+                                            <Typography variant="body2">{startTime} - {endTime}</Typography>
+                                        </Box>
+                                    </Box>
+                                )) : <Typography>Not available at the moment</Typography>}
+                            </Box>
+                        </Grid>
+                    </Grid>
+                </CardContent>
+            </StyledCard>
+        </Container>
+    );
 };
 
 export default ConsultantDetails;
@@ -4550,125 +5196,127 @@ const Homepage = () => {
 
 export default Homepage;
 // File: frontend/src/pages/Login.jsx
-
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock } from 'lucide-react';
 import { loginUser } from '../utils/api';
 
 const Login = ({ setIsLoggedIn, setUserRole, setIsConsultant, setIsApproved, onLoginSuccess, setProfilePicture }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
 
-    if (!email || !password) {
-      setError('Please fill in all fields.');
-      return;
-    }
+        if (!email || !password) {
+            setError('Please fill in all fields.');
+            return;
+        }
 
-    try {
-      const data = await loginUser(email, password);
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('userRole', data.role);
-      localStorage.setItem('isConsultant', data.isConsultant);
-      localStorage.setItem('isApproved', data.isApproved);
-      localStorage.setItem('userId', data.userId) // Storing User ID after login
-      setIsLoggedIn(true);
-      setUserRole(data.role);
-      setIsConsultant(data.isConsultant === 1 || data.isConsultant === true);
-      setIsApproved(Boolean(data.isApproved));
-      onLoginSuccess(data.role, data.isConsultant, data.isApproved);
+        try {
+            const data = await loginUser(email, password);
 
-      if (data.role === 'consultant') {
-        localStorage.setItem('isConsultant', 'true')
-        navigate('/consultantdashboard');
-      } else if (data.role === 'admin') {
-        navigate('/admindashboard');
-      }
-      else {
-        navigate('/consultationdashboard');
-      }
+            // Store necessary data in local storage
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('userRole', data.role);
+            localStorage.setItem('isConsultant', data.isConsultant);
+            localStorage.setItem('isApproved', String(data.isApproved)); // Ensure it's a string
+            localStorage.setItem('userId', String(data.userId)); // Store userId
 
-      // Set Profile picture
-      setProfilePicture(data.profilePicture)
-    } catch (err) {
-      setError('Invalid email or password. Please try again.');
-      console.error('Login failed:', err);
-    }
-  };
+            // Update state in App.jsx
+            setIsLoggedIn(true);
+            setUserRole(data.role);
+            setIsConsultant(data.isConsultant === 1 || data.isConsultant === true);
+            setIsApproved(Boolean(data.isApproved));
+            setProfilePicture(data.profilePicture);
 
-  return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-      <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
-        <h2 className="text-3xl font-semibold text-gray-800 text-center mb-6">
-          Login
-        </h2>
+            // Call the callback function to notify the parent component about the successful login
+            onLoginSuccess(data.role, data.isConsultant, data.isApproved);
 
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-            <span className="block sm:inline">{error}</span>
-          </div>
-        )}
 
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label htmlFor="email" className="block text-gray-700 text-sm font-bold mb-2">
-              Email
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <Mail className="w-5 h-5 text-gray-500" />
-              </div>
-              <input
-                type="email"
-                id="email"
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline pl-10"
-                placeholder="Email Address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+            if (data.role === 'consultant') {
+                navigate('/consultantdashboard');
+            } else if (data.role === 'admin') {
+                navigate('/admindashboard');
+            } else {
+                navigate('/consultationdashboard');
+            }
+        } catch (err) {
+            setError('Invalid email or password. Please try again.');
+            console.error('Login failed:', err);
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+            <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
+                <h2 className="text-3xl font-semibold text-gray-800 text-center mb-6">
+                    Login
+                </h2>
+
+                {error && (
+                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                        <span className="block sm:inline">{error}</span>
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit}>
+                    <div className="mb-4">
+                        <label htmlFor="email" className="block text-gray-700 text-sm font-bold mb-2">
+                            Email
+                        </label>
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                <Mail className="w-5 h-5 text-gray-500" />
+                            </div>
+                            <input
+                                type="email"
+                                id="email"
+                                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline pl-10"
+                                placeholder="Email Address"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="mb-6">
+                        <label htmlFor="password" className="block text-gray-700 text-sm font-bold mb-2">
+                            Password
+                        </label>
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                <Lock className="w-5 h-5 text-gray-500" />
+                            </div>
+                            <input
+                                type="password"
+                                id="password"
+                                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline pl-10"
+                                placeholder="Password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                        <button
+                            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full focus:outline-none focus:shadow-outline"
+                            type="submit"
+                        >
+                            Login
+                        </button>
+                        <a className="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800" href="#">
+                            Forgot Password?
+                        </a>
+                    </div>
+                </form>
             </div>
-          </div>
-
-          <div className="mb-6">
-            <label htmlFor="password" className="block text-gray-700 text-sm font-bold mb-2">
-              Password
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <Lock className="w-5 h-5 text-gray-500" />
-              </div>
-              <input
-                type="password"
-                id="password"
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline pl-10"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <button
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full focus:outline-none focus:shadow-outline"
-              type="submit"
-            >
-              Login
-            </button>
-            <a className="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800" href="#">
-              Forgot Password?
-            </a>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
+        </div>
+    );
 };
 
 export default Login;
@@ -5013,610 +5661,283 @@ export default PrivacyPolicy;
 // File: frontend/src/pages/Register.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, User } from 'lucide-react'; // Assuming these are still used
+import { Mail, Lock, User } from 'lucide-react';
 
 // Material-UI Components
 import {
-  Stepper,
-  Step,
-  StepLabel,
-  Button,
-  Typography,
-  TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  TextareaAutosize,
-  Grid,
-  Box,
-  FormHelperText,
-  Alert
+    Stepper,
+    Step,
+    StepLabel,
+    Button,
+    Typography,
+    Box,
+    Alert,
+    Grid,FormControl, InputLabel, Select , MenuItem , TextField 
 } from '@mui/material';
 
-// import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-// import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-// import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import RegisterForm from '../components/RegisterForm';
 
-import { registerUser } from '../utils/api';  // Keep the API call
+import { registerUser } from '../utils/api';
 
-// Define steps based on role
 const getSteps = (role) => {
-  if (role === 'consultant') {
-    return ['Basic Information', 'Professional Details', 'Payment Details'];
-  } else {
-    return ['Basic Information', 'Medical Information'];
-  }
+    if (role === 'consultant') {
+        return ['Basic Information', 'Professional Details'];
+    } else {
+        return ['Basic Information', 'Medical Information'];
+    }
 };
 
-
 const Register = () => {
-  const [activeStep, setActiveStep] = useState(0);
-  const [skipped, setSkipped] = useState(new Set());
+    const [activeStep, setActiveStep] = useState(0);
+    const [skipped, setSkipped] = useState(new Set());
 
-  const [role, setRole] = useState('user');
-  const steps = getSteps(role);
+    const [role, setRole] = useState('user');
+    const steps = getSteps(role);
 
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [phone, setPhone] = useState(''); // Added Phone
-
-  // Consultant Specific
-  const [bio, setBio] = useState('');
-  const [qualification, setQualification] = useState('');
-  const [areasOfExpertise, setAreasOfExpertise] = useState('');
-  const [speciality, setSpeciality] = useState('');
-  const [availability, setAvailability] = useState([]); // Placeholder for availability (needs custom component)
-  const [bankAccount, setBankAccount] = useState(''); // Placeholder for bank account
-  const [accountVerificationStatus, setAccountVerificationStatus] = useState('pending'); // Simulate verification
-
-  // User Specific
-  const [bloodGroup, setBloodGroup] = useState('');
-  const [medicalHistory, setMedicalHistory] = useState('');
-  const [currentPrescriptions, setCurrentPrescriptions] = useState('');
-  const [gender, setGender] = useState('');  // Added Gender
-
-  const [profilePicture, setProfilePicture] = useState(null); //Keep profile picture
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
-
-
-
-  // Validation States
-  const [fullNameError, setFullNameError] = useState('');
-  const [emailError, setEmailError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [confirmPasswordError, setConfirmPasswordError] = useState('');
-  const [phoneError, setPhoneError] = useState('');
-
-  const [bioError, setBioError] = useState('');
-  const [qualificationError, setQualificationError] = useState('');
-  const [areasOfExpertiseError, setAreasOfExpertiseError] = useState('');
-  const [specialityError, setSpecialityError] = useState('');
-  const [bankAccountError, setBankAccountError] = useState('');
-
-  const [bloodGroupError, setBloodGroupError] = useState('');
-  const [medicalHistoryError, setMedicalHistoryError] = useState('');
-
-
-  const isStepOptional = (step) => {
-    return false; // No steps are optional right now.
-  };
-
-  const isStepSkipped = (step) => {
-    return skipped.has(step);
-  };
-
-  const handleNext = () => {
-    let newSkipped = skipped;
-    if (isStepSkipped(activeStep)) {
-      newSkipped = new Set(newSkipped.values());
-      newSkipped.delete(activeStep);
-    }
-
-    // Validate before proceeding to the next step
-    if (!validateStep(activeStep)) {
-      return; // Stop if validation fails
-    }
-
-    setActiveStep((prevActiveStep) => prevActiveStep + 1);
-    setSkipped(newSkipped);
-  };
-
-  const handleBack = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep - 1);
-  };
-
-  const handleSkip = () => {
-    if (!isStepOptional(activeStep)) {
-      // You probably want to guard against an unwanted condition.
-      // Replace with your own logic.
-      return;
-    }
-
-    setActiveStep((prevActiveStep) => prevActiveStep + 1);
-    setSkipped((prevSkipped) => {
-      const newSkipped = new Set(prevSkipped.values());
-      newSkipped.add(activeStep);
-      return newSkipped;
+    const [formData, setFormData] = useState({
+        fullName: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+        phone: '',
+        bio: '',
+        qualification: '',
+        areasOfExpertise: '',
+        speciality: '',
+        availability: '',
+        bloodGroup: '',
+        medicalHistory: '',
+        currentPrescriptions: '',
+        profilePicture: null,
     });
-  };
 
-  const handleReset = () => {
-    setActiveStep(0);
-  };
+    const [error, setError] = useState('');
+    const navigate = useNavigate();
 
-
-  const validateStep = (step) => {
-    let isValid = true;
-    switch (step) {
-      case 0: // Basic Information
-        if (!fullName) {
-          setFullNameError('Full Name is required');
-          isValid = false;
-        } else {
-          setFullNameError('');
-        }
-
-        if (!email) {
-          setEmailError('Email is required');
-          isValid = false;
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-          setEmailError('Invalid email format');
-          isValid = false;
-        } else {
-          setEmailError('');
-        }
-
-        if (!password) {
-          setPasswordError('Password is required');
-          isValid = false;
-        } else if (password.length < 6) {
-          setPasswordError('Password must be at least 6 characters');
-          isValid = false;
-        } else {
-          setPasswordError('');
-        }
-
-        if (!confirmPassword) {
-          setConfirmPasswordError('Confirm Password is required');
-          isValid = false;
-        } else if (password !== confirmPassword) {
-          setConfirmPasswordError('Passwords do not match');
-          isValid = false;
-        } else {
-          setConfirmPasswordError('');
-        }
-        if (!phone) {
-            setPhoneError('Phone is required');
-            isValid = false;
-          } else if (!/^\d+$/.test(phone)) {
-            setPhoneError('Phone must contain only numbers');
-            isValid = false;
-          } else {
-            setPhoneError('');
-          }
-        break;
-      case 1: // Consultant Professional Details / User Medical Information
-        if (role === 'consultant') {
-          if (!bio) {
-            setBioError('Bio is required');
-            isValid = false;
-          } else {
-            setBioError('');
-          }
-           if (!qualification) {
-              setQualificationError('Qualification is required');
-              isValid = false;
-            } else {
-              setQualificationError('');
-            }
-             if (!areasOfExpertise) {
-              setAreasOfExpertiseError('Areas of Expertise is required');
-              isValid = false;
-            } else {
-              setAreasOfExpertiseError('');
-            }
-             if (!speciality) {
-              setSpecialityError('Speciality is required');
-              isValid = false;
-            } else {
-              setSpecialityError('');
-            }
-            //Availability can be empty
-        } else { // User
-           if (!bloodGroup) {
-            setBloodGroupError('Blood Group is required');
-            isValid = false;
-          } else {
-            setBloodGroupError('');
-          }
-
-          if (!medicalHistory) {
-            setMedicalHistoryError('Medical History is required');
-            isValid = false;
-          } else {
-            setMedicalHistoryError('');
-          }
-
-          //Current prescriptions can be empty
-        }
-        break;
-      case 2: // Consultant Payment Details
-        if (role === 'consultant') {
-          if (!bankAccount) {
-            setBankAccountError('Bank Account is required');
-            isValid = false;
-          } else {
-            setBankAccountError('');
-          }
-        }
-        break;
-      default:
-        break;
-    }
-    return isValid;
-  };
-
-
-    const handleSubmit = async (e) => {
-      e.preventDefault();
-      setError('');
-  
-      if (!validateStep(steps.length - 1)) { // Validate the last step as well
-        return;
-      }
-  
-  
-      try {
-        const formData = new FormData();
-        formData.append('fullName', fullName);
-        formData.append('email', email);
-        formData.append('password', password);
-        formData.append('phone', phone); // Add phone number
-        formData.append('role', role);
-  
-        if (role === 'user') {
-          formData.append('bloodGroup', bloodGroup || ''); // Handle potential null/undefined
-          formData.append('medicalHistory', medicalHistory || '');
-          formData.append('currentPrescriptions', currentPrescriptions || '');
-          formData.append('gender', gender || '');
-        } else if (role === 'consultant') {
-          formData.append('bio', bio || '');
-          formData.append('qualification', qualification || '');
-          formData.append('areasOfExpertise', areasOfExpertise || '');
-          formData.append('speciality', speciality || '');
-          formData.append('availability', JSON.stringify(availability) || ''); // Stringify!
-          formData.append('bankAccount', bankAccount || '');
-        }
-        if (profilePicture) {
-          formData.append('profilePicture', profilePicture);
-        }
-  
-        for (const pair of formData.entries()) {
-          console.log(pair[0] + ', ' + pair[1]);
-        }
-  
-        await registerUser(formData);
-        navigate('/login');
-      } catch (err) {
-        setError('Registration failed. Please try again.');
-        console.error('Registration failed:', err);
-      }
+    const isStepOptional = (step) => {
+        return false; // No steps are optional right now.
     };
 
+    const isStepSkipped = (step) => {
+        return skipped.has(step);
+    };
 
-  const getStepContent = (step) => {
-    switch (step) {
-      case 0: // Basic Information
-        return (
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Full Name"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                error={!!fullNameError}
-                helperText={fullNameError}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                error={!!emailError}
-                helperText={emailError}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Phone Number"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                error={!!phoneError}
-                helperText={phoneError}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                error={!!passwordError}
-                helperText={passwordError}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Confirm Password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                error={!!confirmPasswordError}
-                helperText={confirmPasswordError}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel id="role-label">Registering as</InputLabel>
-                <Select
-                  labelId="role-label"
-                  id="role"
-                  value={role}
-                  label="Registering as"
-                  onChange={(e) => {
-                    setRole(e.target.value);
-                    setActiveStep(0); // Reset to the first step when changing role
-                  }}
-                >
-                  <MenuItem value="user">Looking for a Consultant</MenuItem>
-                  <MenuItem value="consultant">A Consultant</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                type="file"
-                fullWidth
-                label="Profile Picture"
-                InputLabelProps={{ shrink: true }}
-                onChange={(e) => setProfilePicture(e.target.files[0])}
-                />
-            </Grid>
-          </Grid>
-        );
-
-      case 1: // Consultant Professional Details / User Medical Information
-        if (role === 'consultant') {
-          return (
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Bio"
-                  multiline
-                  rows={4}
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  error={!!bioError}
-                  helperText={bioError}
-                />
-              </Grid>
-               <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Qualification"
-                      value={qualification}
-                      onChange={(e) => setQualification(e.target.value)}
-                      error={!!qualificationError}
-                      helperText={qualificationError}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Areas of Expertise"
-                      value={areasOfExpertise}
-                      onChange={(e) => setAreasOfExpertise(e.target.value)}
-                      error={!!areasOfExpertiseError}
-                      helperText={areasOfExpertiseError}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Speciality"
-                      value={speciality}
-                      onChange={(e) => setSpeciality(e.target.value)}
-                      error={!!specialityError}
-                      helperText={specialityError}
-                    />
-                  </Grid>
-
-              {/*  Availability - This is where the custom component goes */}
-             {/* <Grid item xs={12}>
-                <Typography variant="subtitle1">Availability</Typography>
-                   <AvailabilitySelector setAvailability={setAvailability}/>
-                 </Grid>*/}
-            </Grid>
-          );
-        } else {  // User
-          return (
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Blood Group"
-                  value={bloodGroup}
-                  onChange={(e) => setBloodGroup(e.target.value)}
-                  error={!!bloodGroupError}
-                  helperText={bloodGroupError}
-                />
-              </Grid>
-               <Grid item xs={12} sm={6}>
-                    <FormControl fullWidth>
-                    <InputLabel id="gender-label">Gender</InputLabel>
-                    <Select
-                      labelId="gender-label"
-                      id="gender"
-                      value={gender}
-                      label="Gender"
-                      onChange={(e) => setGender(e.target.value)}
-                    >
-                      <MenuItem value="male">Male</MenuItem>
-                      <MenuItem value="female">Female</MenuItem>
-                      <MenuItem value="other">Other</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Medical History"
-                  multiline
-                  rows={4}
-                  value={medicalHistory}
-                  onChange={(e) => setMedicalHistory(e.target.value)}
-                  error={!!medicalHistoryError}
-                  helperText={medicalHistoryError}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Current Prescriptions"
-                  multiline
-                  rows={4}
-                  value={currentPrescriptions}
-                  onChange={(e) => setCurrentPrescriptions(e.target.value)}
-                />
-              </Grid>
-            </Grid>
-          );
+    const handleNext = () => {
+        let newSkipped = skipped;
+        if (isStepSkipped(activeStep)) {
+            newSkipped = new Set(newSkipped.values());
+            newSkipped.delete(activeStep);
         }
 
-      case 2: // Consultant Payment Details
-        return (
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Bank Account Number"
-                value={bankAccount}
-                onChange={(e) => setBankAccount(e.target.value)}
-                error={!!bankAccountError}
-                helperText={bankAccountError}
-              />
-            </Grid>
-             <Grid item xs={12}>
-             {accountVerificationStatus === 'pending' && (
-                <Alert severity="info">Account Verification Pending</Alert>
-                )}
-            {accountVerificationStatus === 'verified' && (
-                <Alert severity="success">Account Verified</Alert>
-            )}
+        setActiveStep((prevActiveStep) => prevActiveStep + 1);
+        setSkipped(newSkipped);
+    };
 
-            {accountVerificationStatus === 'failed' && (
-                <Alert severity="error">Account Verification Failed</Alert>
-            )}
-               {/* Simulate Verification button */}
-                <Button variant="contained" color="primary" onClick={() => setAccountVerificationStatus('verified')}>
-                    Simulate Verify Account
-                </Button>
-            </Grid>
-          </Grid>
-        );
+    const handleBack = () => {
+        setActiveStep((prevActiveStep) => prevActiveStep - 1);
+    };
 
-      default:
-        return 'Unknown step';
-    }
+    const handleSkip = () => {
+        if (!isStepOptional(activeStep)) {
+            return;
+        }
+
+        setActiveStep((prevActiveStep) => prevActiveStep + 1);
+        setSkipped((prevSkipped) => {
+            const newSkipped = new Set(prevSkipped.values());
+            newSkipped.add(activeStep);
+            return newSkipped;
+        });
+    };
+
+    const handleReset = () => {
+        setActiveStep(0);
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+
+        try {
+            const formDataToSend = new FormData();
+            for (const key in formData) {
+                formDataToSend.append(key, formData[key]);
+            }
+            formDataToSend.append('role', role);
+
+            await registerUser(formDataToSend);
+            navigate('/login');
+        } catch (err) {
+            setError('Registration failed. Please try again.');
+            console.error('Registration failed:', err);
+        }
+    };
+
+    const getStepContent = (step) => {
+      switch (step) {
+          case 0: // Basic Information and Role Selection
+              return (
+                  <Grid container spacing={2}>
+                      <Grid item xs={12}>
+                          <FormControl fullWidth>
+                              <InputLabel id="role-label">Registering as</InputLabel>
+                              <Select
+                                  labelId="role-label"
+                                  id="role"
+                                  value={role}
+                                  label="Registering as"
+                                  onChange={(e) => {
+                                      setRole(e.target.value);
+                                      setFormData(prev => ({ ...prev, })); // Reset to the first step when changing role
+                                  }}
+                              >
+                                  <MenuItem value="user">Looking for a Consultant</MenuItem>
+                                  <MenuItem value="consultant">A Consultant</MenuItem>
+                              </Select>
+                          </FormControl>
+                      </Grid>
+                      <Grid item xs={12}>
+                          <TextField
+                              fullWidth
+                              label="Full Name"
+                              name="fullName"
+                              value={formData.fullName}
+                              onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                          />
+                      </Grid>
+                      <Grid item xs={12}>
+                          <TextField
+                              fullWidth
+                              label="Email"
+                              name="email"
+                              value={formData.email}
+                              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                          />
+                      </Grid>
+                      <Grid item xs={12}>
+                          <TextField
+                              fullWidth
+                              label="Phone Number"
+                              name="phone"
+                              value={formData.phone}
+                              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                          />
+                      </Grid>
+                      <Grid item xs={12}>
+                          <TextField
+                              fullWidth
+                              label="Password"
+                              name="password"
+                              type="password"
+                              value={formData.password}
+                              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          />
+                      </Grid>
+                      <Grid item xs={12}>
+                          <TextField
+                              fullWidth
+                              label="Confirm Password"
+                              name="confirmPassword"
+                              type="password"
+                              value={formData.confirmPassword}
+                              onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                          />
+                      </Grid>
+                      <Grid item xs={12} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          Profile Picture
+                          <TextField
+                              type="file"
+                              label="Profile Picture"
+                              InputLabelProps={{ shrink: true }}
+                              onChange={(e) => setFormData({ ...formData, profilePicture: e.target.files[0] })}
+                          />
+                      </Grid>
+                  </Grid>
+              );
+          case 1:
+              return (
+                  <RegisterForm formData={formData} setFormData={setFormData} role={role} />
+              );
+          default:
+              return 'Unknown step';
+      }
   };
 
+    return (
+        <Box sx={{ width: '100%' }}>
+            <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+                <div className="bg-white rounded-2xl shadow-xl p-8 max-w-5xl w-full">
+                    <h2 className="text-3xl font-semibold text-gray-800 text-center mb-6">
+                        Register
+                    </h2>
 
-  return (
-    <Box sx={{ width: '100%' }}>
-        <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-5xl w-full">
-            <h2 className="text-3xl font-semibold text-gray-800 text-center mb-6">
-              Register
-            </h2>
+                    {error && (
+                        <Alert severity="error">{error}</Alert>
+                    )}
 
-        {error && (
-           <Alert severity="error">{error}</Alert>
-        )}
+                    <Stepper activeStep={activeStep}>
+                        {steps.map((label, index) => {
+                            const stepProps = {};
+                            const labelProps = {};
+                            if (isStepOptional(index)) {
+                                labelProps.optional = (
+                                    <Typography variant="caption">Optional</Typography>
+                                );
+                            }
+                            if (isStepSkipped(index)) {
+                                stepProps.completed = false;
+                            }
+                            return (
+                                <Step key={label} {...stepProps}>
+                                    <StepLabel {...labelProps}>{label}</StepLabel>
+                                </Step>
+                            );
+                        })}
+                    </Stepper>
+                    <br />
+                    {activeStep === steps.length ? (
+                        <React.Fragment>
+                            <Typography sx={{ mt: 2, mb: 1 }}>
+                                All steps completed - you're ready to register!
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'row', pt: 2 }}>
+                                <Box sx={{ flex: '1 1 auto' }} />
+                                <Button onClick={handleReset}>Reset</Button>
+                                <Button onClick={handleSubmit}>Submit</Button>
+                            </Box>
+                        </React.Fragment>
+                    ) : (
+                        <React.Fragment>
+                            {getStepContent(activeStep)}
+                            <Box sx={{ display: 'flex', flexDirection: 'row', pt: 2 }}>
+                                <Button
+                                    color="inherit"
+                                    disabled={activeStep === 0}
+                                    onClick={handleBack}
+                                    sx={{ mr: 1 }}
+                                >
+                                    Back
+                                </Button>
+                                <Box sx={{ flex: '1 1 auto' }} />
+                                {isStepOptional(activeStep) && (
+                                    <Button color="inherit" onClick={handleSkip} sx={{ mr: 1 }}>
+                                        Skip
+                                    </Button>
+                                )}
 
-      <Stepper activeStep={activeStep}>
-        {steps.map((label, index) => {
-          const stepProps = {};
-          const labelProps = {};
-          if (isStepOptional(index)) {
-            labelProps.optional = (
-              <Typography variant="caption">Optional</Typography>
-            );
-          }
-          if (isStepSkipped(index)) {
-            stepProps.completed = false;
-          }
-          return (
-            <Step key={label} {...stepProps}>
-              <StepLabel {...labelProps}>{label}</StepLabel>
-            </Step>
-          );
-        })}
-      </Stepper>
-      <br/>
-      {activeStep === steps.length ? (
-        <React.Fragment>
-          <Typography sx={{ mt: 2, mb: 1 }}>
-            All steps completed - you're ready to register!
-          </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'row', pt: 2 }}>
-            <Box sx={{ flex: '1 1 auto' }} />
-            <Button onClick={handleReset}>Reset</Button>
-             <Button onClick={handleSubmit}>Submit</Button>
-          </Box>
-        </React.Fragment>
-      ) : (
-        <React.Fragment>
-          {getStepContent(activeStep)}
-          <Box sx={{ display: 'flex', flexDirection: 'row', pt: 2 }}>
-            <Button
-              color="inherit"
-              disabled={activeStep === 0}
-              onClick={handleBack}
-              sx={{ mr: 1 }}
-            >
-              Back
-            </Button>
-            <Box sx={{ flex: '1 1 auto' }} />
-            {isStepOptional(activeStep) && (
-              <Button color="inherit" onClick={handleSkip} sx={{ mr: 1 }}>
-                Skip
-              </Button>
-            )}
-
-            <Button onClick={handleNext}>
-              {activeStep === steps.length - 1 ? 'Submit' : 'Next'}
-            </Button>
-          </Box>
-        </React.Fragment>
-      )}
-        <Typography variant="body2" align="center" sx={{ mt: 2 }}>
-           Already have an account? <a href="/login">Login</a>
-        </Typography>
-          </div>
-        </div>
-    </Box>
-  );
+                                <Button onClick={handleNext}>
+                                    {activeStep === steps.length - 1 ? 'Submit' : 'Next'}
+                                </Button>
+                            </Box>
+                        </React.Fragment>
+                    )}
+                    <Typography variant="body2" align="center" sx={{ mt: 2 }}>
+                        Already have an account? <a href="/login">Login</a>
+                    </Typography>
+                </div>
+            </div>
+        </Box>
+    );
 };
 
 export default Register;

@@ -1,6 +1,6 @@
-const sqlite3 = require('sqlite3').verbose();
+const sqlite3 = require("sqlite3").verbose();
 
-const dbName = 'healthconsultant.db';
+const dbName = "healthconsultant.db";
 let db;
 
 function connectToDatabase() {
@@ -10,7 +10,7 @@ function connectToDatabase() {
         console.error("Database connection error:", err.message);
         reject(err);
       } else {
-        console.log('Connected to the database.');
+        console.log("Connected to the database.");
         resolve(db);
       }
     });
@@ -22,7 +22,7 @@ async function initializeDatabase() {
     await connectToDatabase();
     await createTables();
     await seedConsultants();
-    console.log('Database initialized successfully.');
+    console.log("Database initialized successfully.");
   } catch (error) {
     console.error("Database initialization failed:", error.message);
     throw error;
@@ -32,7 +32,8 @@ async function initializeDatabase() {
 async function createTables() {
   return new Promise((resolve, reject) => {
     db.serialize(() => {
-      db.run(`
+      db.run(
+        `
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       fullName TEXT NOT NULL,
@@ -58,14 +59,17 @@ async function createTables() {
 
       isApproved INTEGER DEFAULT 0 -- 1 if approved, 0 otherwise
     );
-      `, (err) => {
-        if (err) {
-          reject(err);
-          return;
+      `,
+        (err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
         }
-      });
+      );
 
-      db.run(`
+      db.run(
+        `
         CREATE TABLE IF NOT EXISTS consultants (
           id INTEGER PRIMARY KEY,
           userId INTEGER,
@@ -75,14 +79,17 @@ async function createTables() {
           imageUrl TEXT,
           FOREIGN KEY (userId) REFERENCES users(id)
         )
-      `, (err) => {
-        if (err) {
-          reject(err);
-          return;
+      `,
+        (err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
         }
-      });
+      );
 
-      db.run(`
+      db.run(
+        `
         CREATE TABLE IF NOT EXISTS bookings (
           id INTEGER PRIMARY KEY,
           userId INTEGER,
@@ -93,14 +100,17 @@ async function createTables() {
           FOREIGN KEY (userId) REFERENCES users(id),
           FOREIGN KEY (consultantId) REFERENCES consultants(id)
         )
-      `, (err) => {
-        if (err) {
-          reject(err);
-          return;
+      `,
+        (err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
         }
-      });
+      );
 
-      db.run(`
+      db.run(
+        `
         CREATE TABLE IF NOT EXISTS healthrecords (
           id INTEGER PRIMARY KEY,
           userId INTEGER,
@@ -109,14 +119,17 @@ async function createTables() {
           prescriptions TEXT,
           FOREIGN KEY (userId) REFERENCES users(id)
         )
-      `, (err) => {
-        if (err) {
-          reject(err);
-          return;
+      `,
+        (err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
         }
-      });
+      );
 
-      db.run(`
+      db.run(
+        `
         CREATE TABLE IF NOT EXISTS messages (
           id INTEGER PRIMARY KEY,
           userId INTEGER,
@@ -126,30 +139,17 @@ async function createTables() {
           FOREIGN KEY (userId) REFERENCES users(id),
           FOREIGN KEY (consultantId) REFERENCES consultants(id)
         )
-      `, (err) => {
-        if (err) {
-          reject(err);
-          return;
+      `,
+        (err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
         }
-      });
+      );
 
-      db.run(`
-        CREATE TABLE IF NOT EXISTS payments (
-          id INTEGER PRIMARY KEY,
-          userId INTEGER,
-          amount REAL,
-          date TEXT,
-          status TEXT,
-          FOREIGN KEY (userId) REFERENCES users(id)
-        )
-      `, (err) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-      });
-
-      db.run(`
+      db.run(
+        `
         CREATE TABLE IF NOT EXISTS reviews (
           id INTEGER PRIMARY KEY,
           userId INTEGER,
@@ -159,13 +159,16 @@ async function createTables() {
           FOREIGN KEY (userId) REFERENCES users(id),
           FOREIGN KEY (consultantId) REFERENCES consultants(id)
         )
-      `, (err) => {
-        if (err) {
-          reject(err);
-          return;
+      `,
+        (err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
         }
-      });
-        db.run(`
+      );
+      db.run(
+        `
         CREATE TABLE IF NOT EXISTS contacts (
           id INTEGER PRIMARY KEY,
           name TEXT,
@@ -173,12 +176,51 @@ async function createTables() {
           subject TEXT,
           message TEXT
         )
-      `, (err) => {
-        if (err) {
-          reject(err);
-          return;
+      `,
+        (err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
         }
-      });
+      );
+      db.run(`
+
+        CREATE TABLE IF NOT EXISTS payments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          bookingId INTEGER NOT NULL,
+          userId INTEGER NOT NULL,
+          amount REAL NOT NULL,
+          paymentDate TEXT NOT NULL,
+          paymentMethod TEXT,
+          status TEXT NOT NULL, -- e.g., 'paid', 'refunded', 'pending'
+          FOREIGN KEY (bookingId) REFERENCES bookings(id),
+          FOREIGN KEY (userId) REFERENCES users(id)
+        );
+              `, (err) => {
+                if (err) {
+                  reject(err);
+                  return;
+                }
+              });
+      db.run(
+        `
+        CREATE TABLE IF NOT EXISTS refunds (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          paymentId INTEGER NOT NULL,
+          refundDate TEXT NOT NULL,
+          refundAmount REAL NOT NULL,
+          reason TEXT,
+          FOREIGN KEY (paymentId) REFERENCES payments(id)
+        );
+      `,
+        (err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+        }
+      );
 
       resolve();
     });
@@ -231,7 +273,8 @@ async function seedConsultants() {
               qualification: "PhD, Neurology",
               areasOfExpertise: "Migraines, Epilepsy",
               speciality: "Neurology",
-              availability: '{"Wednesday": "10:00-18:00", "Thursday": "10:00-18:00"}',
+              availability:
+                '{"Wednesday": "10:00-18:00", "Thursday": "10:00-18:00"}',
               bankAccount: "0987654321",
               isApproved: 0,
               profilePicture: "https://placehold.co/200x200",
@@ -246,7 +289,8 @@ async function seedConsultants() {
               qualification: "MD, Pediatrics",
               areasOfExpertise: "Childhood illnesses, Vaccinations",
               speciality: "Pediatrics",
-              availability: '{"Friday": "8:00-16:00", "Saturday": "8:00-12:00"}',
+              availability:
+                '{"Friday": "8:00-16:00", "Saturday": "8:00-12:00"}',
               bankAccount: "1122334455",
               isApproved: 1,
               profilePicture: "https://placehold.co/200x200",
@@ -312,7 +356,6 @@ async function seedConsultants() {
     );
   });
 }
-
 
 module.exports = {
   initializeDatabase,

@@ -22,6 +22,8 @@ import Payment from './pages/Payment';
 import Review from './pages/Review';
 import AdminDashboard from './pages/AdminDashboard.jsx'; // Corrected import path and extension
 import ConsultantDashboardPage from './pages/ConsultantDashboardPage.jsx'; // Corrected import path and extension
+import UserPayments from './pages/UserPayments.jsx';
+import ConsultantEarnings from './pages/ConsultantEarnings.jsx'
 import './App.css';
 import './index.css'; //Importing index.css to solve global styling issues
 
@@ -104,18 +106,18 @@ function App() {
                             <Route path="/messaging" element={<Messaging />} />
                             <Route path="/payment" element={<Payment />} />
                             <Route path="/review/:id" element={<Review />} />
+                            <Route path="/userpayments" element={<UserPayments />} />
                         </>
                     )}
 
                     {/* Consultant profile and dashboard only accessible if logged in as consultant, and approved*/}
-                    {isLoggedIn && userRole === 'consultant' && isApproved ? (
+                    {isLoggedIn && userRole === 'consultant' && (
                         <>
                             <Route path="/consultantprofile" element={<ConsultantProfile />} />
                             <Route path="/consultantdashboard" element={<ConsultantDashboardPage />} />
+                            <Route path="/consultantearnings" element={<ConsultantEarnings/>}/>
                         </>
-                    ) : (isLoggedIn && userRole === 'consultant') ? (
-                        <Route path="/consultantprofile" element={<Navigate to="/" />} />
-                    ) : null}
+                    )}
 
                     {/* Admin dashboard route, require login and admin role */}
                     {isLoggedIn && userRole === 'admin' ? (

@@ -346,3 +346,28 @@ export const approveConsultant = async (token, userId) => {
         throw error;
     }
 };
+
+//api.js
+export const getUserPayments = async (token) => {
+    try {
+      const response = await axios.get(`${BASE_URL}/api/user/payments`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Failed to retrieve user payments:", error);
+      throw error;
+    }
+  };
+  
+  export const getConsultantEarnings = async (token) => {
+    try {
+      const response = await axios.get(`${BASE_URL}/api/consultant/earnings`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Failed to retrieve consultant earnings:", error);
+      throw error;
+    }
+  };
