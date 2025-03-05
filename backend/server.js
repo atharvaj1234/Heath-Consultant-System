@@ -9,6 +9,7 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 const dotenv = require("dotenv");
 const multer = require("multer");
+const { promisify } = require("util");
 
 dotenv.config();
 
@@ -576,13 +577,13 @@ app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
 
       const params = [];
       if (specialty) {
-        query += " AND specialty LIKE ?";
+        query += " AND speciality LIKE ?";
         params.push(`%${specialty}%`);
       }
-      if (availability) {
-        query += " AND availability LIKE ?";
-        params.push(`%${availability}%`);
-      }
+      // if (availability) {
+      //   query += " AND availability LIKE ?";
+      //   params.push(`%${availability}%`);
+      // }
 
       const db = getDb();
       db.all(query, params, (err, consultants) => {
@@ -597,79 +598,72 @@ app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
     });
 
     // Send Chat Request (POST)
-app.post("/api/chat/request", authenticateToken, async (req, res) => {
-  const userId = req.user.userId;
-  const { consultantId, bookingId } = req.body;
-  const db = getDb();
 
-  try {
-    // Verify user and booking
-    db.get(
-      "SELECT 1 FROM bookings WHERE id = ? AND userId = ? AND consultantId = ?",
-      [bookingId, userId, consultantId],
-      (err, booking) => {
-        if (err) {
-          return handleDatabaseError(
-            res,
-            err,
-            "Failed to verify booking ownership"
-          );
-        }
-
-        if (!booking) {
-          return res
-            .status(403)
-            .json({ message: "Invalid booking or unauthorized" });
-        }
-
-        // Check if payment is valid
-        db.get(
-          "SELECT 1 FROM payments WHERE bookingId = ? AND userId = ? AND status = 'paid'",
-          [bookingId, userId],
-          (err, payment) => {
+    app.post("/api/chat/request", authenticateToken, async (req, res) => {
+      const userId = req.user.userId;
+      const { consultantId, bookingId, message } = req.body;
+      const db = getDb();
+    
+      // Promisify database queries
+      const dbGet = promisify(db.get).bind(db);
+    
+      // Custom function to promisify `db.run()`
+      const dbRun = (query, params) => {
+        return new Promise((resolve, reject) => {
+          db.run(query, params, function (err) {
             if (err) {
-              return handleDatabaseError(
-                res,
-                err,
-                "Failed to verify payment status"
-              );
+              reject(err);
+            } else {
+              resolve({ lastID: this.lastID });
             }
-
-            if (!payment) {
-              return res
-                .status(403)
-                .json({ message: "Payment not found or not paid" });
-            }
-
-            // Create the chat request
-            db.run(
-              "INSERT INTO chat_requests (userId, consultantId, bookingId) VALUES (?, ?, ?)",
-              [userId, consultantId, bookingId],
-              function (err) {
-                if (err) {
-                  return handleDatabaseError(
-                    res,
-                    err,
-                    "Failed to create chat request"
-                  );
-                }
-
-                res.status(201).json({
-                  message: "Chat request sent successfully",
-                  chatRequestId: this.lastID,
-                });
-              }
-            );
-          }
+          });
+        });
+      };
+    
+      try {
+        // Verify booking exists and belongs to user
+        const booking = await dbGet(
+          "SELECT 1 FROM bookings WHERE id = ? AND userId = ? AND consultantId = ?",
+          [bookingId, userId, consultantId]
         );
+    
+        if (!booking) {
+          return res.status(403).json({ message: "Invalid booking or unauthorized" });
+        }
+    
+        // Check if payment is valid
+        const payment = await dbGet(
+          "SELECT 1 FROM payments WHERE bookingId = ? AND userId = ? AND status = 'paid'",
+          [bookingId, userId]
+        );
+    
+        if (!payment) {
+          return res.status(403).json({ message: "Payment not found or not paid" });
+        }
+    
+        // Create the chat request
+        const { lastID: chatRequestId } = await dbRun(
+          "INSERT INTO chat_requests (userId, consultantId, bookingId) VALUES (?, ?, ?)",
+          [userId, consultantId, bookingId]
+        );
+    
+        // Insert the first message
+        await dbRun(
+          "INSERT INTO chats (chatRequestId, senderId, message) VALUES (?, ?, ?)",
+          [chatRequestId, userId, message]
+        );
+    
+        res.status(201).json({
+          message: "Chat request sent and message sent successfully",
+          chatRequestId,
+        });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Failed to send chat request" });
       }
-    );
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to send chat request" });
-  }
-});
-
+    });
+    
+    
 // Get Chat Requests for Consultant (GET)
 // Get Chat Requests for a User (GET)
 app.get("/api/chat/requests", authenticateToken, async (req, res) => {
@@ -824,7 +818,7 @@ app.get("/api/chat/:chatRequestId/messages", authenticateToken, async (req, res)
   try {
     // Validate user is part of this chat
     db.get(
-      `SELECT 1 FROM chat_requests WHERE id = ? AND (userId = ? OR consultantId = ?) AND status = 'accepted'`,
+      `SELECT 1 FROM chat_requests WHERE id = ? AND (userId = ? OR consultantId = ?)`,
       [chatRequestId, userId, userId],
       (err, chatRequest) => {
         if (err) {

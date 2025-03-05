@@ -60,8 +60,8 @@ const UserPayments = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-12">
       <div className="max-w-4xl mx-auto bg-white shadow-xl rounded-2xl overflow-hidden">
-        <div className="px-6 py-8 bg-gradient-to-r from-blue-100 to-purple-100">
-          <h2 className="text-3xl font-semibold text-gray-800 text-center">
+        <div className="px-6 py-8 bg-gradient-to-r from-blue-400 to-purple-500 ">
+          <h2 className="text-3xl font-semibold text-white text-center">
             My Payment History
           </h2>
         </div>

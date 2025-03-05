@@ -6,7 +6,7 @@ import {
   cancelBooking,
   get_details,
 } from "../utils/api"; // Import the missing function
-import { Calendar, Eye, X } from "lucide-react";
+import { Calendar, Eye, X, Check } from "lucide-react";
 import { Navigate } from "react-router-dom";
 
 const ConsultantDashboardPage = () => {

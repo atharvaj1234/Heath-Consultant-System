@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getConsultantById, createBooking, getConsultantBookingsById } from '../utils/api';
+import dayjs from 'dayjs';
+import 'dayjs/locale/en';
+import { styled } from '@mui/system';
 import {
     Container,
     Typography,
@@ -13,54 +16,76 @@ import {
     MenuItem,
     Alert,
     CircularProgress,
+    Card,
+    CardContent,
+    Box,
+    List,
+    ListItem,
+    ListItemText,
 } from '@mui/material';
-import dayjs from 'dayjs';
-import 'dayjs/locale/en'; // Import the locale
+import { CreditCard, Calendar, Clock, CheckCircle } from 'lucide-react';
 
+// 🌈 Styled Components with Glassmorphism & Gradients
+const PageContainer = styled(Container)({
+    minHeight: '100vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: '',
+    padding: '20px',
+});
+
+const GlassCard = styled(Card)({
+    background: 'linear-gradient(135deg,rgba(93, 165, 247, 0.63) 0%,rgba(102, 37, 252, 0.67) 100%)',
+    backdropFilter: 'blur(12px)',
+    borderRadius: '16px',
+    padding: '24px',
+    color: '#fff',
+    boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)',
+});
+
+const GradientButton = styled(Button)({
+    background: 'linear-gradient(135deg, #6a11cb 30%, #2575fc 90%)',
+    color: '#fff',
+    padding: '10px 20px',
+    fontWeight: 'bold',
+    textTransform: 'none',
+    transition: 'all 0.3s ease-in-out',
+    borderRadius: '8px',
+    '&:hover': {
+        background: 'linear-gradient(135deg, #2575fc 30%, #6a11cb 90%)',
+        transform: 'scale(1.05)',
+    },
+});
+
+// Custom Input Styling
+const StyledTextField = styled(TextField)({
+    '& label.Mui-focused': { color: '#fff' },
+    '& .MuiOutlinedInput-root': {
+        color: '#fff',
+        '& fieldset': { borderColor: '#ddd' },
+        '&:hover fieldset': { borderColor: '#6a11cb' },
+        '&.Mui-focused fieldset': { borderColor: '#2575fc' },
+    },
+});
+
+// 🔥 Booking Component
 const Booking = () => {
     const { id } = useParams();
     const [consultant, setConsultant] = useState(null);
     const [selectedDate, setSelectedDate] = useState(dayjs());
     const [time, setTime] = useState('');
-    const [paymentInfo, setPaymentInfo] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [bookingSuccess, setBookingSuccess] = useState(false);
+    const [cardNumber, setCardNumber] = useState('');
+    const [expiryDate, setExpiryDate] = useState('');
+    const [cvv, setCvv] = useState('');
     const navigate = useNavigate();
 
     const [availableTimes, setAvailableTimes] = useState({}); // dynamic times
     const [bookings, setBookings] = useState([]);
-    const [isTimeSlotAvailable, setIsTimeSlotAvailable] = useState(true);
 
-    const handleAcceptBooking = async (bookingId) => {
-        try {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                setError("Authentication required. Please login as an admin.");
-                return;
-            }
-
-            // await acceptBooking(token, bookingId);
-
-            // Update the bookings state to reflect the accepted booking
-            setBookings(
-                bookings.map((booking) =>
-                    booking.id === bookingId
-                        ? { ...booking, status: "accepted" }
-                        : booking
-                )
-            );
-        } catch (err) {
-            setError("Failed to accept booking. Please try again.");
-            console.error("Failed to accept booking:", err);
-        }
-    };
-
-    const isTimeSlotBooked = (date, time) => {
-        return bookings.some(
-            (booking) => booking.date === date && booking.time === time
-        );
-    };
 
     useEffect(() => {
         const fetchConsultant = async () => {
@@ -86,6 +111,7 @@ const Booking = () => {
               const token = localStorage.getItem('token');
               const data = await getConsultantBookingsById(token, id);
               setBookings(data);
+              console.log(data)
   
               const response = await fetch(
                   `http://localhost:5555/api/consultant/${id}/availability`,
@@ -110,11 +136,19 @@ const Booking = () => {
       fetchConsultantAvailability();
   }, [id, selectedDate]);
 
+  const isSlotBooked = (appointments, selectedDate, selectedTime) => appointments.some(app => app.date === selectedDate && app.time === selectedTime);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError('');
         setBookingSuccess(false);
+        if(isSlotBooked(bookings, selectedDate.format('YYYY-MM-DD'), time) || selectedDate === new Date().toISOString().split('T')[0]){
+            alert("Slot Already Booked Select another")
+            setLoading(false);
+            return
+        }
+
 
         try {
             const token = localStorage.getItem('token');
@@ -135,18 +169,6 @@ const Booking = () => {
             setLoading(false);
         }
     };
-    const handleDateChange = (date) => {
-      const today = dayjs().startOf('day'); // Get today's date without time
-      const selected = dayjs(date).startOf('day'); // Normalize selected date
-  
-      if (selected.isBefore(today)) {
-          alert("You cannot select a today's or past date.");
-          return; // Ignore past dates
-      }
-  
-      setSelectedDate(selected);
-      setIsTimeSlotAvailable(true); // Reset the availability check when date changes
-  };
   
 
     const generateTimeSlots = () => {
@@ -194,96 +216,87 @@ const Booking = () => {
   
 
     if (loading) {
-        return (
-            <Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-                <CircularProgress />
-            </Container>
-        );
+        return <PageContainer><CircularProgress /></PageContainer>;
     }
 
     if (error) {
-        return (
-            <Container>
-                <Alert severity="error">{error}</Alert>
-            </Container>
-        );
-    }
-
-    if (!consultant) {
-        return (
-            <Container>
-                <Alert severity="error">Consultant not found.</Alert>
-            </Container>
-        );
+        return <PageContainer><Alert severity="error">{error}</Alert></PageContainer>;
     }
 
     return (
-        <Container maxWidth="md" sx={{ mt: 4 }}>
-            <Typography variant="h4" component="h1" gutterBottom>
-                Book Appointment with Dr. {consultant.speciality}
-            </Typography>
+        <PageContainer>
+            <GlassCard>
+                <Typography variant="h4" gutterBottom align="center" sx={{ fontWeight: 'bold' }}>
+                    Book Appointment with {consultant?.consultant?.speciality}
+                </Typography>
 
-            <form onSubmit={handleSubmit}>
                 <Grid container spacing={3}>
-                    <Grid item xs={12}>
-                        <TextField
-                            label="Selected Date"
-                            type="date"
-                            value={selectedDate.format('YYYY-MM-DD')}
-                            onChange={(e) => handleDateChange(dayjs(e.target.value))}
-                            fullWidth
-                            InputLabelProps={{
-                                shrink: true,
-                            }}
-                        />
-                    </Grid>
-                    <Grid item xs={12}>
-                        <FormControl fullWidth>
-                            <InputLabel id="time-select-label">Select Time Slot</InputLabel>
-                            <Select
-                                labelId="time-select-label"
-                                id="time"
-                                value={time}
-                                label="Select Time Slot"
-                                onChange={(e) => setTime(e.target.value)}
+                    {/* Booking Form */}
+                    <Grid item xs={12} md={6}>
+                        <form onSubmit={handleSubmit}>
+                            <Typography variant="h6" gutterBottom>Booking Details</Typography>
+
+                            <StyledTextField
+                                label="Select Date"
+                                type="date"
+                                fullWidth
                                 required
-                            >
-                                {generateTimeSlots().map((slot) => (
+                                value={selectedDate.format('YYYY-MM-DD')}
+                                onChange={(e) => setSelectedDate(dayjs(e.target.value))}
+                                InputLabelProps={{ shrink: true }}
+                                sx={{ mb: 2 }}
+                            />
+
+                            <FormControl fullWidth sx={{ mb: 2 }}>
+                                <InputLabel style={{ color: '#fff' }}>Select Time Slot</InputLabel>
+                                <Select
+                                    value={time}
+                                    onChange={(e) => setTime(e.target.value)}
+                                    style={{ color: '#fff' }}
+                                >
+                                    {generateTimeSlots().map((slot) => (
                                         <MenuItem key={slot} value={slot}>
                                             {slot}
                                         </MenuItem>
                                     ))}
-                            </Select>
-                            {!isTimeSlotAvailable && (
-                                <Alert severity="error">This time slot is already booked. Please select another time.</Alert>
-                            )}
+                                </Select>
+                            </FormControl>
 
-                        </FormControl>
+                            <Typography variant="h6" gutterBottom>Payment Details</Typography>
+
+                            <StyledTextField label="Card Number" fullWidth required sx={{ mb: 2 }} value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} />
+                            <StyledTextField label="Expiry Date (MM/YY)" fullWidth required sx={{ mb: 2 }} value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
+                            <StyledTextField label="CVV" fullWidth required sx={{ mb: 2 }} value={cvv} onChange={(e) => setCvv(e.target.value)} />
+
+                            <GradientButton type="submit" fullWidth startIcon={<CheckCircle />}>
+                                Confirm Booking
+                            </GradientButton>
+
+                            {bookingSuccess && <Alert severity="success" sx={{ mt: 2 }}>Booking Successful! Redirecting...</Alert>}
+                        </form>
                     </Grid>
-                    <Grid item xs={12}>
-                        <TextField
-                            label="Payment Information"
-                            placeholder="Enter Credit Card Number"
-                            fullWidth
-                            required
-                            value={paymentInfo}
-                            onChange={(e) => setPaymentInfo(e.target.value)}
-                        />
-                    </Grid>
-                    <Grid item xs={12}>
-                        <Button type="submit" variant="contained" color="primary" fullWidth>
-                            Confirm Booking
-                        </Button>
+
+                    {/* Billing Summary */}
+                    <Grid item xs={12} md={6}>
+                        <Typography variant="h6" gutterBottom>Billing Summary</Typography>
+                        <List>
+                            <ListItem>
+                                <ListItemText primary="Consultation Fee" />
+                                <Typography>$50.00</Typography>
+                            </ListItem>
+                            <ListItem>
+                                <ListItemText primary="Tax (8%)" />
+                                <Typography>$4.00</Typography>
+                            </ListItem>
+                            <ListItem>
+                                <ListItemText primary="Total" sx={{ fontWeight: 'bold' }} />
+                                <Typography sx={{ fontWeight: 'bold' }}>$54.00</Typography>
+                            </ListItem>
+                        </List>
                     </Grid>
                 </Grid>
-            </form>
-
-            {bookingSuccess && (
-                <Alert severity="success" sx={{ mt: 3 }}>
-                    Booking created successfully! Redirecting to dashboard...
-                </Alert>
-            )}
-        </Container>
+            </GlassCard>
+        </PageContainer>
     );
 };
 

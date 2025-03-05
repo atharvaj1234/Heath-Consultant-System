@@ -152,18 +152,6 @@ export const createHealthRecord = async (token, medicalHistory, ongoingTreatment
     }
 };
 
-export const getMessages = async (token) => {
-    try {
-        const response = await axios.get(`${BASE_URL}/api/messages`, {
-            headers: { Authorization: `Bearer ${token}` },
-        });
-        return response.data;
-    } catch (error) {
-        console.error('Failed to retrieve messages:', error);
-        throw error;
-    }
-};
-
 export const createMessage = async (token, consultantId, message) => {
     try {
         const response = await axios.post(`${BASE_URL}/api/messages`, { consultantId, message }, {
@@ -188,9 +176,9 @@ export const sendMessage = async (token, chatRequestId, message) => {
   }
 };
 
-export const sendMessageRequest = async (token, consultantId, bookingId) => {
+export const sendMessageRequest = async (token, consultantId, bookingId, message) => {
     try {
-        const response = await axios.post(`${BASE_URL}/api/chat/request`, { consultantId, bookingId }, {
+        const response = await axios.post(`${BASE_URL}/api/chat/request`, { consultantId, bookingId, message }, {
             headers: {
                 Authorization: `Bearer ${token}`
             }
@@ -216,6 +204,60 @@ export const chatStatus = async (token, consultantId) => {
         throw error;
     }
 };
+
+export const updateChatRequest = async (token, requestId, status) => {
+    try {
+      const response = await axios.put(
+        `${BASE_URL}/api/chat/requests/${requestId}`,
+        { status },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Failed to update chat request:", error);
+      throw error;
+    }
+  };
+
+export const getMessages = async (selectedChatRequestId) => {
+    try {
+        const token = localStorage.getItem('token');
+        // Fetch  chat
+        const response = await axios.get(`${BASE_URL}/api/chat/${selectedChatRequestId}/messages`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+        console.log(response.data)
+        return response.data;
+    } catch (error) {
+        console.error("Failed to fetch chat request:", error);
+        throw error;
+      }
+}
+
+export const getChatRequests = async () => {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            console.error('Authentication required. Please login.');
+            return;
+        }
+
+        // Get All Requests
+        const response = await axios.get(`${BASE_URL}/api/chat/requests`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+        return response.data;
+
+    } catch (error) {
+        console.error('Failed to fetch chat requests.', error);
+    }
+}
 
 export const getPayments = async (token) => {
     try {

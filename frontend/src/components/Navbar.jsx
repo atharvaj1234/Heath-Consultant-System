@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   Home,
   Phone,
@@ -18,6 +18,7 @@ import {
 
 const Navbar = ({ isLoggedIn, userRole, handleLogout }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const location = useLocation(); // Get the current path
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -38,39 +39,29 @@ const Navbar = ({ isLoggedIn, userRole, handleLogout }) => {
             {/* Desktop Menu */}
             <div className="hidden md:block ml-10">
               <div className="flex items-center space-x-6">
-                <NavItem to="/" icon={<Home />} text="Home" />
-                <NavItem to="/aboutus" text="About Us" icon={<Info/>} />
-                <NavItem to="/contactus" icon={<Phone />} text="Contact Us" />
+                <NavItem to="/" icon={<Home />} text="Home" location={location} />
+                <NavItem to="/aboutus" text="About Us" icon={<Info />} location={location} />
+                <NavItem to="/contactus" icon={<Phone />} text="Contact Us" location={location} />
 
                 {isLoggedIn && userRole === "user" && (
                   <>
-                    <NavItem
-                      to="/consultantsearch"
-                      text="Find a Consultant"
-                      icon = {<Search/>}
-                    />
-                    <NavItem
-                      to="/consultationdashboard"
-                      icon={<Calendar />}
-                      text="My Appointments"
-                    />
-                    <NavItem to="/healthrecords" icon={<File />} text="Health Records" />
-                    <NavItem to="/userpayments" icon={<CreditCard />} text="Payments" />
-                    
+                    <NavItem to="/consultantsearch" text="Find a Consultant" icon={<Search />} location={location} />
+                    <NavItem to="/consultationdashboard" icon={<Calendar />} text="My Appointments" location={location} />
+                    <NavItem to="/healthrecords" icon={<File />} text="Health Records" location={location} />
+                    <NavItem to="/userpayments" icon={<CreditCard />} text="Payments" location={location} />
                   </>
                 )}
 
                 {isLoggedIn && userRole === "consultant" && (
                   <>
-                    <NavItem to="/consultantprofile" icon={<Tool />} text="My Profile" />
-                    <NavItem to="/consultantdashboard" icon={<LayoutDashboard />} text="Dashboard" />
-                    <NavItem to="/consultantearnings" icon={<DollarSign />} text="Earnings" />
-
+                    <NavItem to="/consultantprofile" icon={<Tool />} text="My Profile" location={location} />
+                    <NavItem to="/consultantdashboard" icon={<LayoutDashboard />} text="Dashboard" location={location} />
+                    <NavItem to="/consultantearnings" icon={<DollarSign />} text="Earnings" location={location} />
                   </>
                 )}
 
                 {isLoggedIn && userRole === "admin" && (
-                  <NavItem to="/admindashboard" icon={<LayoutDashboard />} text="Admin Dashboard" />
+                  <NavItem to="/admindashboard" icon={<LayoutDashboard />} text="Admin Dashboard" location={location} />
                 )}
               </div>
             </div>
@@ -80,8 +71,8 @@ const Navbar = ({ isLoggedIn, userRole, handleLogout }) => {
           <div className="hidden md:flex items-center space-x-4 ml-14">
             {isLoggedIn ? (
               <>
-                <NavItem to="/userprofile" icon={<User />} text="Profile" />
-                <NavItem to="/messages" icon={<MessageCircle />} text="Chat" />
+                <NavItem to="/userprofile" icon={<User />} text="Profile" location={location} />
+                <NavItem to="/messages" icon={<MessageCircle />} text="Chat" location={location} />
                 <button
                   onClick={handleLogout}
                   className="text-white bg-red-500 hover:bg-red-600 px-4 py-2 rounded-md flex items-center transition"
@@ -91,18 +82,15 @@ const Navbar = ({ isLoggedIn, userRole, handleLogout }) => {
               </>
             ) : (
               <>
-                <NavItem to="/login" text="Login" />
-                <NavItem to="/register" text="Register" />
+                <NavItem to="/login" text="Login" location={location} />
+                <NavItem to="/register" text="Register" location={location} />
               </>
             )}
           </div>
 
           {/* Mobile Menu Button */}
           <div className="md:hidden -mr-2">
-            <button
-              onClick={toggleMenu}
-              className=" hover:text-gray-300 focus:outline-none"
-            >
+            <button onClick={toggleMenu} className="hover:text-gray-300 focus:outline-none">
               <svg
                 className={`h-6 w-6 ${isMenuOpen ? "hidden" : "block"}`}
                 xmlns="http://www.w3.org/2000/svg"
@@ -129,45 +117,45 @@ const Navbar = ({ isLoggedIn, userRole, handleLogout }) => {
       {/* Mobile Menu */}
       <div className={`${isMenuOpen ? "block" : "hidden"} md:hidden bg-blue-700`}>
         <div className="px-4 py-3 space-y-2">
-          <NavItem to="/" icon={<Home />} text="Home" mobile />
-          <NavItem to="/aboutus" text="About Us" mobile />
-          <NavItem to="/contactus" icon={<Phone />} text="Contact Us" mobile />
+          <NavItem to="/" icon={<Home />} text="Home" location={location} mobile />
+          <NavItem to="/aboutus" text="About Us" location={location} mobile />
+          <NavItem to="/contactus" icon={<Phone />} text="Contact Us" location={location} mobile />
 
           {isLoggedIn && userRole === "user" && (
             <>
-              <NavItem to="/consultantsearch" text="Find a Consultant" mobile />
-              <NavItem to="/consultationdashboard" icon={<Calendar />} text="My Appointments" mobile />
-              <NavItem to="/healthrecords" icon={<File />} text="Health Records" mobile />
-              <NavItem to="/userpayments" icon={<CreditCard />} text="Payments" mobile />
-              <NavItem to="/messages" icon={<MessageCircle />} text="Chat" mobile />
+              <NavItem to="/consultantsearch" text="Find a Consultant" location={location} mobile />
+              <NavItem to="/consultationdashboard" icon={<Calendar />} text="My Appointments" location={location} mobile />
+              <NavItem to="/healthrecords" icon={<File />} text="Health Records" location={location} mobile />
+              <NavItem to="/userpayments" icon={<CreditCard />} text="Payments" location={location} mobile />
+              <NavItem to="/messages" icon={<MessageCircle />} text="Chat" location={location} mobile />
             </>
           )}
 
           {isLoggedIn && userRole === "consultant" && (
             <>
-              <NavItem to="/consultantprofile" icon={<Tool />} text="My Profile" mobile />
-              <NavItem to="/consultantdashboard" icon={<LayoutDashboard />} text="Dashboard" mobile />
-              <NavItem to="/consultantearnings" icon={<DollarSign />} text="Earnings" mobile />
-              <NavItem to="/messages" icon={<MessageCircle />} text="Chat" mobile />
+              <NavItem to="/consultantprofile" icon={<Tool />} text="My Profile" location={location} mobile />
+              <NavItem to="/consultantdashboard" icon={<LayoutDashboard />} text="Dashboard" location={location} mobile />
+              <NavItem to="/consultantearnings" icon={<DollarSign />} text="Earnings" location={location} mobile />
+              <NavItem to="/messages" icon={<MessageCircle />} text="Chat" location={location} mobile />
             </>
           )}
 
           {isLoggedIn && userRole === "admin" && (
-            <NavItem to="/admindashboard" icon={<LayoutDashboard />} text="Admin Dashboard" mobile />
+            <NavItem to="/admindashboard" icon={<LayoutDashboard />} text="Admin Dashboard" location={location} mobile />
           )}
 
           {isLoggedIn ? (
             <button
               onClick={handleLogout}
-              className="w-full text-left  bg-red-500 hover:bg-red-600 px-4 py-2 rounded-md flex items-center transition"
+              className="w-full text-left bg-red-500 hover:bg-red-600 px-4 py-2 rounded-md flex items-center transition"
             >
               <LogOut className="h-5 w-5 mr-2" />
               Logout
             </button>
           ) : (
             <>
-              <NavItem to="/login" text="Login" mobile />
-              <NavItem to="/register" text="Register" mobile />
+              <NavItem to="/login" text="Login" location={location} mobile />
+              <NavItem to="/register" text="Register" location={location} mobile />
             </>
           )}
         </div>
@@ -176,17 +164,21 @@ const Navbar = ({ isLoggedIn, userRole, handleLogout }) => {
   );
 };
 
-// Reusable NavItem Component
-const NavItem = ({ to, icon, text, mobile }) => (
-  <Link
-    to={to}
-    className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition flex-row text-nowrap items-center
-      ${mobile ? " hover:bg-blue-500" : " hover:scale-105"}`
-    }
-  >
-    {icon && <span className="h-5 w-5 mr-3">{icon}</span>}
-    <span>{text}</span>
-  </Link>
-);
+// Reusable NavItem Component with active state styling
+const NavItem = ({ to, icon, text, location, mobile }) => {
+  const isActive = location.pathname === to;
+
+  return (
+    <Link
+      to={to}
+      className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition flex-row text-nowrap 
+      ${isActive ? "underline scale-105 hover:scale-108" : "hover:scale-105"}
+      ${mobile ? "hover:bg-blue-500" : ""}`}
+    >
+      {icon && <span className="h-5 w-5 mr-3">{icon}</span>}
+      <span>{text}</span>
+    </Link>
+  );
+};
 
 export default Navbar;

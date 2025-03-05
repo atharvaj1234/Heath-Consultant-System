@@ -23,7 +23,6 @@ import { TimePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 
-import dayjs from 'dayjs';
 const ITEM_HEIGHT = 48;
 const ITEM_PADDING_TOP = 8;
 const MenuProps = {
@@ -39,12 +38,14 @@ const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Fri
 
 const RegisterForm = ({ formData, setFormData, role }) => {
     const handleInputChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const newForm = { ...formData, [e.target.name]: e.target.value }
+        setFormData(newForm);
     };
 
     const [selectedDays, setSelectedDays] = useState([]);
 
     const handleDayToggle = (day) => {
+        if(!day) return
         setSelectedDays(prevSelectedDays => {
             if (prevSelectedDays.includes(day)) {
                 return prevSelectedDays.filter(d => d !== day);
@@ -56,26 +57,91 @@ const RegisterForm = ({ formData, setFormData, role }) => {
 
     const [startTime, setStartTime] = useState(null);
     const [endTime, setEndTime] = useState(null);
-    const [useSameTime, setUseSameTime] = useState(false);
 
     const handleTimeChange = (newTime, setter) => {
         setter(newTime);
     };
 
     const updateAvailability = () => {
-        let availabilityData = {};
-        selectedDays.forEach(day => {
-            availabilityData[day] = {
-                startTime: startTime ? startTime.format('HH:mm') : null,
-                endTime: endTime ? endTime.format('HH:mm') : null,
-            };
-        });
-        setFormData({ ...formData, availability: JSON.stringify(availabilityData) });
+        if((startTime >= endTime) && startTime && endTime && selectedDays.length > 0){
+            alert("Start time must be less then end time")
+            setSelectedDays([]);
+            return
+        }
+        else{
+
+            let availabilityData = {};
+            selectedDays.forEach(day => {
+                availabilityData[day] = {
+                    startTime: (startTime) ? startTime.format('HH:mm') : null,
+                    endTime: (endTime) ? endTime.format('HH:mm') : null,
+                };
+            });
+            setFormData({ ...formData, availability: JSON.stringify(availabilityData) });
+        }
     };
 
-    const handleUseSameTimeChange = (event) => {
-        setUseSameTime(event.target.checked);
-    };
+            const validateForm = (formData) => {
+                let errors = {};
+            
+                if (!formData.name || formData.name.trim() === '') {
+                    return "Name is required";
+                }
+            
+                if (!formData.email || formData.email.trim() === '') {
+                    return "Email is required";
+                } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+                    return "Invalid email format";
+                }
+            
+                if (!formData.password || formData.password.length < 6) {
+                    return "Password must be at least 6 characters long";
+                }
+            
+                if (role === 'consultant') {
+                    if (!formData.bio || formData.bio.trim() === '') {
+                        return "Bio is required";
+                    }
+            
+                    if (!formData.qualification || formData.qualification.trim() === '') {
+                        return "Qualification is required";
+                    }
+            
+                    if (!formData.areasOfExpertise || formData.areasOfExpertise.trim() === '') {
+                        return "Areas of Expertise are required";
+                    }
+            
+                    if (!formData.speciality || formData.speciality.trim() === '') {
+                        return "Speciality is required";
+                    }
+            
+                    try {
+                        const availability = JSON.parse(formData.availability);
+                        if (Object.keys(availability).length === 0) {
+                            return "At least one availability slot must be selected";
+                        }
+                    } catch {
+                        errors.availability = "Invalid availability format";
+                    }
+                }
+            
+                if (role === 'user') {
+                    if (!formData.bloodGroup || formData.bloodGroup.trim() === '') {
+                        return "Blood Group is required";
+                    }
+            
+                    if (!formData.medicalHistory || formData.medicalHistory.trim() === '') {
+                        return "Medical History is required";
+                    }
+            
+                    if (!formData.currentPrescriptions || formData.currentPrescriptions.trim() === '') {
+                        return "Current Prescriptions are required";
+                    }
+                }
+            
+                return null;
+            };
+
     React.useEffect(() => {
         updateAvailability();
     }, [startTime, endTime, selectedDays])
