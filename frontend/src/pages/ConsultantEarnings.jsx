@@ -57,9 +57,9 @@ const ConsultantEarnings = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-teal-50 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-blue-300 to-purple-400 py-12">
       <div className="max-w-4xl mx-auto bg-white shadow-xl rounded-2xl overflow-hidden">
-        <div className="px-6 py-8 bg-gradient-to-r from-green-100 to-teal-100">
+        <div className="px-6 py-8 bg-gradient-to-r from-blue-100 to-purple-100">
           <h2 className="text-3xl font-semibold text-gray-800 text-center">
             My Earnings
           </h2>

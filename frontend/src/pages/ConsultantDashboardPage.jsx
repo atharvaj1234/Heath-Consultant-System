@@ -6,7 +6,7 @@ import {
   cancelBooking,
   get_details,
 } from "../utils/api"; // Import the missing function
-import { Calendar } from "lucide-react";
+import { Calendar, Eye, X } from "lucide-react";
 import { Navigate } from "react-router-dom";
 
 const ConsultantDashboardPage = () => {
@@ -184,7 +184,7 @@ const ConsultantDashboardPage = () => {
   // }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-10">
+    <div className="min-h-screen bg-gray-100">
       {details && (
         <div
           className="absolute top-0 bottom-0 left-0 right-0 flex justify-center items-center min-w-screen"
@@ -305,61 +305,65 @@ const ConsultantDashboardPage = () => {
         </div>
       )}
 
+<div className="min-h-screen bg-gradient-to-br from-blue-300 to-purple-400 p-10">
       <section className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-8">
         <h2 className="text-3xl font-semibold text-gray-800 text-center mb-6">
           Consultant Dashboard
         </h2>
-        {loading && <p className="text-center">Loading bookings...</p>}
+
+        {loading && <p className="text-center text-gray-700">Loading bookings...</p>}
         {error && <p className="text-center text-red-500">{error}</p>}
         {!loading && !error && bookings.length === 0 && (
-          <p className="text-center">No bookings found.</p>
+          <p className="text-center text-gray-700">No bookings found.</p>
         )}
+
         {!loading && !error && bookings.length > 0 && (
-          <ul className="divide-y divide-gray-200">
+          <ul className="divide-y divide-gray-300">
             {bookings.map((booking) => (
-              <li key={booking.id} className="py-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-lg font-semibold text-gray-700">
-                      <Calendar className="inline-block h-5 w-5 mr-1" />
-                      {new Date(booking.date).toLocaleDateString()}
-                    </p>
-                    <p className="text-gray-600">Time: {booking.time}</p>
-                    <p className="text-gray-600">Status: {booking.status}</p>
-                  </div>
+              <li key={booking.id} className="py-4 flex items-center justify-between">
+                <div>
+                  <p className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-gray-600" />
+                    {new Date(booking.date).toLocaleDateString()}
+                  </p>
+                  <p className="text-gray-600">Time: {booking.time}</p>
+                  <p className="text-gray-600">Status: {booking.status}</p>
+                </div>
+
+                <div className="flex gap-2">
                   {booking.status === "pending" && (
-                    <div className="flex justify-between w-[200px]">
+                    <>
                       <button
-                        className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline cursor-pointer"
+                        className="flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg shadow-md transition"
                         onClick={() => handleAcceptBooking(booking.id)}
                       >
+                        <Check className="h-5 w-5" />
                         Accept
                       </button>
                       <button
-                        className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline cursor-pointer"
+                        className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg shadow-md transition"
                         onClick={() => handleRejectBooking(booking.id)}
                       >
+                        <X className="h-5 w-5" />
                         Reject
                       </button>
-                    </div>
+                    </>
                   )}
                   {booking.status === "accepted" && (
-                    <div className="flex justify-between">
-                      <button
-                        className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline cursor-pointer"
-                        onClick={() =>
-                          handleCancelBooking(booking.id, booking.date)
-                        }
-                      >
-                        Cancel
-                      </button>
-                    </div>
+                    <button
+                      className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg shadow-md transition"
+                      onClick={() => handleCancelBooking(booking.id, booking.date)}
+                    >
+                      <X className="h-5 w-5" />
+                      Cancel
+                    </button>
                   )}
                   <button
-                    className="bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 cursor-pointer"
+                    className="flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg shadow-md transition"
                     onClick={() => getDetails(booking.id)}
                   >
-                    view
+                    <Eye className="h-5 w-5" />
+                    View
                   </button>
                 </div>
               </li>
@@ -367,6 +371,7 @@ const ConsultantDashboardPage = () => {
           </ul>
         )}
       </section>
+    </div>
     </div>
   );
 };

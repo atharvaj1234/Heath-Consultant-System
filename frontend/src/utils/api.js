@@ -70,10 +70,9 @@ export const getConsultantProfile = async (token) => {
     }
 };
 
-
-export const updateConsultantProfile = async (token, specialty, qualifications, availability) => {
+export const updateConsultantProfile = async (token, profileData) => {
     try {
-        const response = await axios.put(`${BASE_URL}/api/consultant/profile`, { specialty, qualifications, availability }, {
+        const response = await axios.put(`${BASE_URL}/api/consultant/profile`, profileData, {
             headers: { Authorization: `Bearer ${token}` },
         });
         return response.data;

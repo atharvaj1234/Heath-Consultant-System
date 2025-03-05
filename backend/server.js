@@ -478,7 +478,6 @@ app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
       );
     });
 
-    // Consultant Profile (PUT)
     app.put(
       "/api/consultant/profile",
       authenticateToken,
@@ -491,12 +490,24 @@ app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
           .notEmpty()
           .withMessage("Qualifications are required"),
         body("availability").notEmpty().withMessage("Availability is required"),
+        body("bio").optional().isString().withMessage("Bio must be a string"),
+        body("areasOfExpertise").optional().isString().withMessage("Areas of expertise must be a string"),
+        body("fullName").notEmpty().withMessage("Full name is required"),
+        body("profilePicture").optional().isURL().withMessage("Profile picture must be a valid URL"),
       ],
       (req, res) => {
         const userId = req.user.userId;
-        const { specialty, qualifications, availability } = req.body;
+        const {
+          specialty,
+          qualifications,
+          availability,
+          bio,
+          areasOfExpertise,
+          fullName,
+          profilePicture,
+        } = req.body; // Extract all fields from the request body
         const db = getDb();
-
+    
         // Verify if the user is a consultant before updating the profile
         db.get(
           "SELECT isConsultant FROM users WHERE id = ?",
@@ -505,17 +516,34 @@ app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
             if (err) {
               return handleDatabaseError(res, err, "Failed to check user role");
             }
-
+    
             if (!user || user.isConsultant !== 1) {
               return res
                 .status(403)
                 .json({ message: "User is not a consultant" });
             }
-
-            // Update the consultant profile
+    
+            // Update the consultant profile (Corrected field name: 'speciality' to 'specialty')
             db.run(
-              "UPDATE users SET specialty = ?, qualification = ?, availability = ? WHERE id = ?",
-              [specialty, qualifications, availability, userId],
+              `UPDATE users SET
+                  fullName = ?,
+                  speciality = ?,  -- Corrected field name
+                  qualification = ?,
+                  availability = ?,
+                  bio = ?,
+                  areasOfExpertise = ?,
+                  profilePicture = ?
+               WHERE id = ?`,
+              [
+                fullName,
+                specialty,
+                qualifications,
+                availability,
+                bio,
+                areasOfExpertise,
+                profilePicture,
+                userId,
+              ],
               (err) => {
                 if (err) {
                   return handleDatabaseError(
@@ -524,15 +552,23 @@ app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
                     "Failed to update consultant profile"
                   );
                 }
-
-                res.json({ userId, specialty, qualifications, availability });
+    
+                res.json({
+                  userId,
+                  fullName,
+                  specialty,
+                  qualifications,
+                  availability,
+                  bio,
+                  areasOfExpertise,
+                  profilePicture,
+                });
               }
             );
           }
         );
       }
     );
-
     // List Consultants (GET)
     app.get("/api/consultants", (req, res) => {
       const { specialty, rating, availability } = req.query;

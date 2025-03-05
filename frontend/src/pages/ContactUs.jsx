@@ -35,7 +35,7 @@ const ContactUs = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-10">
+    <div className="min-h-screen bg-gradient-to-br from-blue-300 to-purple-400 p-10">
       {/* Contact Information */}
       <section className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-8 mb-12">
         <h2 className="text-3xl font-semibold text-gray-800 text-center mb-6">

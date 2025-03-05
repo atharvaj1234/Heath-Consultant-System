@@ -2,7 +2,7 @@ import React from 'react';
 
 const AboutUs = () => {
   return (
-    <div className="min-h-screen bg-gray-100 p-10">
+    <div className="min-h-screen bg-gradient-to-br from-blue-200 to-purple-200 p-10">
       {/* Company Overview */}
       <section className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-8 mb-12">
         <h2 className="text-3xl font-semibold text-gray-800 text-center mb-6">
