@@ -1,12 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
-import { getAdminUsers, getAdminConsultants, getAdminBookings, acceptBooking, approveConsultant } from '../utils/api';
+import { getAdminUsers, getAdminConsultants, getAdminBookings, acceptBooking, approveConsultant, getHealthRecords } from '../utils/api';
 import { User, Calendar as CalendarIcon, User as Tool, CheckCircle } from 'lucide-react';
 
 const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
   const [consultants, setConsultants] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [healthRecords, setHealthRecords] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -73,9 +74,9 @@ const AdminDashboard = () => {
       await approveConsultant(token, userId);
 
       // Update the users state to reflect the approved consultant
-      setUsers(users.map(user =>
-        user.id === userId ? { ...user, isApproved: 1 } : user
-      ));
+      // setUsers(users.map(user =>
+      //   user.id === userId ? { ...user, isApproved: 1 } : user
+      // ));
 
       // Update the consultants state to reflect the approval (if needed)
       setConsultants(consultants.map(consultant =>
@@ -88,8 +89,142 @@ const AdminDashboard = () => {
     }
   };
 
+  const getDetails = async (userId) => {
+    try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+              setError('Authentication required. Please login.');
+              return;
+            }
+    
+            const data = await getHealthRecords(token, userId);
+            setHealthRecords(data[0]);
+          } catch (err) {
+            setError('Failed to retrieve health records. Please try again.');
+            setHealthRecords([]);
+            console.error('Failed to fetch health records:', err);
+          }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 p-10">
+    {healthRecords && (
+      <div
+        className="absolute top-0 bottom-0 left-0 right-0 flex justify-center items-center min-w-screen"
+        style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+        onClick={() => setHealthRecords(null)}
+      >
+        <div className="rounded-lg bg-gradient-to-r from-blue-500 via-teal-400 to-green-300 p-1">
+          <div className="flex justify-center items-center">
+            <div className="max-w-6xl bg-white rounded-lg shadow-2xl p-8 space-y-6 transform transition-all hover:shadow-xl w-[40vw]">
+              {/* Profile Section */}
+              <div className="flex items-center space-x-6">
+                <img
+                  src={
+                    `http://localhost:5555/uploads/${users.find(user => user.id === healthRecords.userId)?.profilePicture}`}
+                  alt="Profile Picture"
+                  className="w-24 h-24 rounded-full object-cover shadow-md"
+                />
+                <div>
+                  <h2 className="text-3xl font-semibold text-gray-800">
+                    {users.filter((user) => user.id === healthRecords.userId)[0]?.fullName}
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    {users.filter((user) => user.id === healthRecords.userId)[0]?.email}
+                    <br />
+                    {users.filter((user) => user.id === healthRecords.userId)[0]?.phone}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Blood Group:{" "}
+                    <span className="font-bold">
+                      {users.filter((user) => user.id === healthRecords.userId)[0]?.bloodGroup}
+                    </span>
+                  </p>
+                </div>
+              </div>
+              {/* Current Prescriptions Section */}
+              <div>
+                <h3 className="text-2xl font-semibold text-gray-700">
+                  Current Prescriptions
+                </h3>
+                <p className="text-gray-600">
+                  {users.filter((user) => user.id === healthRecords.userId)[0]?.currentPrescriptions}
+                </p>
+              </div>
+
+              {/* Medical History Section */}
+              <div className="space-y-4">
+                <h3 className="text-2xl font-semibold text-gray-700">
+                  Medical History
+                </h3>
+                <p className="text-gray-600">{users.filter((user) => user.id === healthRecords.userId)[0]?.medicalHistory}</p>
+              </div>
+
+              {/* Health Records Section */}
+              <div className="space-y-4">
+                <h3 className="text-2xl font-semibold text-gray-700">
+                  Health Records
+                </h3>
+                {/* Check if healthRecords exist */}
+                {healthRecords && healthRecords.length > 0 ? (
+                  <div className="space-y-6 overflow-auto h-[250px]">
+                    {/* Loop through each health record */}
+                    {healthRecords.map((record, index) => (
+                      <div
+                        key={index}
+                        className="bg-gray-50 p-4 rounded-lg shadow-md"
+                      >
+                        <h4 className="text-lg font-medium text-gray-600">
+                          Medical History
+                        </h4>
+                        <p className="text-gray-500">
+                          {record.medicalHistory ||
+                            "No medical history available"}
+                        </p>
+
+                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <h4 className="text-lg font-medium text-gray-600">
+                              Ongoing Treatments
+                            </h4>
+                            <p className="text-gray-500">
+                              {record.ongoingTreatments ||
+                                "No ongoing treatments"}
+                            </p>
+                          </div>
+
+                          <div>
+                            <h4 className="text-lg font-medium text-gray-600">
+                              Prescriptions
+                            </h4>
+                            <p className="text-gray-500">
+                              {record.prescriptions ||
+                                "No current prescriptions"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">
+                    No health records available.
+                  </p>
+                )}
+              </div>
+
+              {/* Health Medical History Section
+          <div>
+            <h3 className="text-2xl font-semibold text-gray-700">
+              Health Medical History
+            </h3>
+            <p className="text-gray-600">{details.user.medicalHistory}</p>
+          </div> */}
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
       <section className="max-w-6xl mx-auto">
         <h2 className="text-3xl font-semibold text-gray-800 text-center mb-8">
           Admin Dashboard
@@ -123,14 +258,14 @@ const AdminDashboard = () => {
                         Role
                       </th>
                       <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs uppercase">
-                        isConsultant
+                        Health Records
                       </th>
-                      <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs uppercase">
+                      {/* <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs uppercase">
                         isApproved
                       </th>
                       <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs uppercase">
                         Actions
-                      </th>
+                      </th> */}
                     </tr>
                   </thead>
                   <tbody>
@@ -140,19 +275,12 @@ const AdminDashboard = () => {
                         <td className="px-5 py-3 border-b border-gray-200 text-sm">{user.fullName}</td>
                         <td className="px-5 py-3 border-b border-gray-200 text-sm">{user.email}</td>
                         <td className="px-5 py-3 border-b border-gray-200 text-sm">{user.role}</td>
-                        <td className="px-5 py-3 border-b border-gray-200 text-sm">{user.isConsultant ? 'Yes' : 'No'}</td>
-                        <td className="px-5 py-3 border-b border-gray-200 text-sm">{user.isApproved ? 'Yes' : 'No'}</td>
-                        <td className="px-5 py-3 border-b border-gray-200 text-sm">
-                          {user.isConsultant && !user.isApproved && (
-                            <button
+                        <td className="px-5 py-3 border-b border-gray-200 text-sm">{                            <button
                               className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-                              onClick={() => handleApproveConsultant(user.id)}
+                              onClick={() => getDetails(user.id)}
                             >
-                              Approve
-                            </button>
-                          )}
-                          {user.isApproved ? <CheckCircle className="inline-block h-5 w-5 text-green-500" /> : null}
-                        </td>
+                              Get Records
+                            </button>}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -174,13 +302,34 @@ const AdminDashboard = () => {
                         ID
                       </th>
                       <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs uppercase">
-                        Specialty
+                        Name
                       </th>
                       <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs uppercase">
-                        Qualifications
+                        Email
                       </th>
                       <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs uppercase">
-                        Availability
+                        Bio
+                      </th>
+                      <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs uppercase">
+                        Expertise
+                      </th>
+                      <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs uppercase">
+                        Speciality
+                      </th>
+                      <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs uppercase">
+                        Qualification
+                      </th>
+                      <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs uppercase">
+                        Bank Account
+                      </th>
+                      <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs uppercase">
+                        Documents
+                      </th>
+                      <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs uppercase">
+                        isApproved
+                      </th>
+                      <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs uppercase">
+                        Actions
                       </th>
                     </tr>
                   </thead>
@@ -188,9 +337,26 @@ const AdminDashboard = () => {
                     {consultants.map((consultant) => (
                       <tr key={consultant.id}>
                         <td className="px-5 py-3 border-b border-gray-200 text-sm">{consultant.id}</td>
-                        <td className="px-5 py-3 border-b border-gray-200 text-sm">{consultant.specialty}</td>
-                        <td className="px-5 py-3 border-b border-gray-200 text-sm">{consultant.qualifications}</td>
-                        <td className="px-5 py-3 border-b border-gray-200 text-sm">{consultant.availability}</td>
+                        <td className="px-5 py-3 border-b border-gray-200 text-sm">{consultant.fullName}</td>
+                        <td className="px-5 py-3 border-b border-gray-200 text-sm">{consultant.email}</td>
+                        <td className="px-5 py-3 border-b border-gray-200 text-sm">{consultant.bio.length > 10 ? consultant.bio.slice(0, 10) + "..." : consultant.bio}</td>
+                        <td className="px-5 py-3 border-b border-gray-200 text-sm">{consultant.areasOfExpertise}</td>
+                        <td className="px-5 py-3 border-b border-gray-200 text-sm">{consultant.speciality}</td>
+                        <td className="px-5 py-3 border-b border-gray-200 text-sm">{consultant.qualification}</td>
+                        <td className="px-5 py-3 border-b border-gray-200 text-sm">{consultant.bankAccount}</td>
+                        <td className="px-5 py-3 border-b border-gray-200 text-sm">{consultant.documents}</td>
+                        <td className="px-5 py-3 border-b border-gray-200 text-sm">{consultant.isApproved ? 'Yes' : 'No'}</td>
+                        <td className="px-5 py-3 border-b border-gray-200 text-sm">
+                          {consultant.isConsultant && !consultant.isApproved && (
+                            <button
+                              className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                              onClick={() => handleApproveConsultant(consultant.id)}
+                            >
+                              Approve
+                            </button>
+                          )}
+                          {consultant.isApproved ? <CheckCircle className="inline-block h-5 w-5 text-green-500" /> : ''}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -226,9 +392,9 @@ const AdminDashboard = () => {
                       <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs uppercase">
                         Status
                       </th>
-                      <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs uppercase">
+                      {/* <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs uppercase">
                         Actions
-                      </th>
+                      </th> */}
                     </tr>
                   </thead>
                   <tbody>
@@ -240,7 +406,7 @@ const AdminDashboard = () => {
                         <td className="px-5 py-3 border-b border-gray-200 text-sm">{booking.date}</td>
                         <td className="px-5 py-3 border-b border-gray-200 text-sm">{booking.time}</td>
                         <td className="px-5 py-3 border-b border-gray-200 text-sm">{booking.status}</td>
-                        <td className="px-5 py-3 border-b border-gray-200 text-sm">
+                        {/* <td className="px-5 py-3 border-b border-gray-200 text-sm">
                           {booking.status === 'pending' && (
                             <button
                               className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
@@ -249,7 +415,7 @@ const AdminDashboard = () => {
                               Accept
                             </button>
                           )}
-                        </td>
+                        </td> */}
                       </tr>
                     ))}
                   </tbody>

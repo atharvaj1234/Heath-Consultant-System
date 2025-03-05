@@ -18,6 +18,7 @@ const Review = () => {
       setError('');
       try {
         const data = await getConsultantById(id);
+        console.log(data)
         setConsultant(data);
       } catch (err) {
         setError('Failed to retrieve consultant details. Please try again.');
@@ -78,10 +79,11 @@ const Review = () => {
       {/* Consultant Information */}
       <section className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-8 mb-8">
         <h2 className="text-3xl font-semibold text-gray-800 mb-2">
-          Review for {consultant.consultant.specialty}
+          Review for Dr. {consultant.consultant.fullName}
         </h2>
-        <p className="text-xl text-gray-700">
-          Specialty: {consultant.consultant.specialty}
+        <p className="text-xl text-gray-700 mt-4">
+          Specialty: {consultant.consultant.speciality} <br/>
+          Expertise: {consultant.consultant.areasOfExpertise}
         </p>
       </section>
 

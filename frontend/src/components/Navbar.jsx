@@ -71,8 +71,8 @@ const Navbar = ({ isLoggedIn, userRole, handleLogout }) => {
           <div className="hidden md:flex items-center space-x-4 ml-14">
             {isLoggedIn ? (
               <>
-                <NavItem to="/userprofile" icon={<User />} text="Profile" location={location} />
-                <NavItem to="/messages" icon={<MessageCircle />} text="Chat" location={location} />
+                {userRole !== "admin" && (<><NavItem to="/userprofile" icon={<User />} text="Profile" location={location} />
+                <NavItem to="/messages" icon={<MessageCircle />} text="Chat" location={location} /></>)}
                 <button
                   onClick={handleLogout}
                   className="text-white bg-red-500 hover:bg-red-600 px-4 py-2 rounded-md flex items-center transition"

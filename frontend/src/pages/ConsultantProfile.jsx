@@ -194,7 +194,7 @@ const ConsultantProfile = () => {
                 <div className="md:flex">
                     {/* Left Side - Profile Picture and Name */}
                     <div className="md:w-1/3 bg-gradient-to-br from-purple-500 to-indigo-500 text-white py-12 px-6 flex flex-col items-center justify-center">
-                        <img className="rounded-full w-40 h-40 shadow-lg mb-4 object-cover object-center" src={profilePicture} alt="Profile" onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/256x256" }} />
+                        <img className="rounded-full w-40 h-40 shadow-lg mb-4 object-cover object-center" src={`http://localhost:5555/uploads/${profilePicture}`} alt="Profile" onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/256x256" }} />
                         <h1 className="text-2xl font-semibold mb-2">{name}</h1>
                         <p className="text-gray-100 text-sm italic">{specialty || 'Specialty Not Specified'}</p>
                     </div>

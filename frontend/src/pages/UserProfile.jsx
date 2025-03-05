@@ -274,7 +274,7 @@ const UserProfile = ({ setProfilePicture: setAppProfilePicture }) => {
                                     <div className="flex justify-center">
                                         <img
                                             className="rounded-full w-32 h-32 object-cover shadow-md"
-                                            src={profilePicture || "https://placehold.co/200x200"}
+                                            src={`http://localhost:5555/uploads/${profilePicture}`}
                                             alt="Profile"
                                             onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/200x200"; }}
                                         />

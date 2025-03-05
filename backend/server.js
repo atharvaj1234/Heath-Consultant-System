@@ -9,6 +9,8 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 const dotenv = require("dotenv");
 const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 const { promisify } = require("util");
 
 dotenv.config();
@@ -573,7 +575,7 @@ app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
     // List Consultants (GET)
     app.get("/api/consultants", (req, res) => {
       const { specialty, rating, availability } = req.query;
-      let query = "SELECT * FROM users WHERE isConsultant = 1"; // Start with a base query
+      let query = "SELECT * FROM users WHERE isConsultant = 1 AND isApproved = 1"; // Start with a base query
 
       const params = [];
       if (specialty) {
@@ -1006,7 +1008,7 @@ app.get("/api/consultants/:id", (req, res) => {
   );
 });
 
-    // Bookings (GET and POST)
+    // Bookings (GET)
     app.get("/api/bookings", authenticateToken, (req, res) => {
       const userId = req.user.userId;
       const db = getDb();
@@ -1521,25 +1523,23 @@ app.get("/api/consultant/:consultantId/availability", (req, res) => {
 
     // Health Records (GET and POST)
     app.get("/api/healthrecords", authenticateToken, (req, res) => {
+      console.log("Received Token in API:", req.headers.authorization); // Debugging
       const userId = req.user.userId;
+      const { userId1 } = req.query; // FIXED: Use query instead of body
       const db = getDb();
-
+  
       db.all(
-        "SELECT * FROM healthrecords WHERE userId = ?",
-        [userId],
-        (err, healthrecords) => {
-          if (err) {
-            return handleDatabaseError(
-              res,
-              err,
-              "Failed to retrieve health records"
-            );
+          "SELECT * FROM healthrecords WHERE userId = ?",
+          [userId1 ? userId1 : userId],
+          (err, healthrecords) => {
+              if (err) {
+                  return handleDatabaseError(res, err, "Failed to retrieve health records");
+              }
+              res.json(healthrecords);
           }
-
-          res.json(healthrecords);
-        }
       );
-    });
+  });
+  
 
     app.post(
       "/api/healthrecords",
@@ -1743,7 +1743,7 @@ app.get("/api/consultant/:consultantId/availability", (req, res) => {
       const db = getDb();
 
       db.all(
-        "SELECT id, fullName, email, role, isConsultant, bloodGroup, medicalHistory, currentPrescriptions, phone, areasOfExpertise, isApproved, profilePicture FROM users",
+        "SELECT id, fullName, email, role, isConsultant, bloodGroup, medicalHistory, currentPrescriptions, phone, areasOfExpertise, isApproved, profilePicture FROM users WHERE isConsultant = 0",
         [],
         (err, users) => {
           if (err) {
@@ -1951,7 +1951,7 @@ app.get("/api/consultant/:consultantId/availability", (req, res) => {
 
         // Verify if the requesting user is the consultant or admin
         db.get(
-          "SELECT isConsultant, id FROM users WHERE id = ?",
+          "SELECT isConsultant, id, isApproved FROM users WHERE id = ?",
           [consultantId],
           (err, consultant) => {
             if (err) {
@@ -1964,6 +1964,10 @@ app.get("/api/consultant/:consultantId/availability", (req, res) => {
 
             if (!consultant || consultant.isConsultant !== 1) {
               return res.status(404).json({ message: "Consultant not found or is not a consultant" });
+            }
+
+            if (!consultant || consultant.isApproved !== 1) {
+              return res.status(404).json({ message: "We are currently reviewing your profile as part of our standard security procedures.\n\n Rest assured, this is simply a routine check to ensure the integrity of our platform and maintain the trust of all our valued customers.\n\n Your account will be activated shortly after the review process is complete.\n\n Thank you for your patience and understanding." });
             }
 
             //Check If consultant or Admin is requesting bookings
@@ -2004,6 +2008,13 @@ app.get("/api/consultant/:consultantId/availability", (req, res) => {
         );
       }
     );
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads"), {
+  setHeaders: (res, path, stat) => {
+      res.set("Access-Control-Allow-Origin", "*"); // Allow any origin
+      res.set("Cross-Origin-Resource-Policy", "cross-origin"); // Allow cross-origin resource access
+  }
+  }));
 
     // Start the server
     app.listen(port, () => {

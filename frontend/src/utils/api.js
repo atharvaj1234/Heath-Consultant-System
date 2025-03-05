@@ -128,10 +128,12 @@ export const createBooking = async (token, consultantId, date, time) => {
     }
 };
 
-export const getHealthRecords = async (token) => {
+export const getHealthRecords = async (token, userId = null) => {
     try {
+        // console.log("Sending Token:", token); // Debugging
         const response = await axios.get(`${BASE_URL}/api/healthrecords`, {
             headers: { Authorization: `Bearer ${token}` },
+            params: { userId1: userId } // FIXED: Send userId1 as a query param
         });
         return response.data;
     } catch (error) {
@@ -139,6 +141,7 @@ export const getHealthRecords = async (token) => {
         throw error;
     }
 };
+
 
 export const createHealthRecord = async (token, medicalHistory, ongoingTreatments, prescriptions) => {
     try {

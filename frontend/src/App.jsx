@@ -80,6 +80,7 @@ function App() {
         setIsConsultant(false);
         setIsApproved(false);
         setProfilePicture(''); // Clear profile picture on logout
+        window.location.href = "/"
     }, []);
 
     return (

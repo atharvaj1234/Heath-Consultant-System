@@ -157,7 +157,7 @@ const ConsultantDashboardPage = () => {
         const data = await getConsultantBookingsById(token, parsedConsultantId);
         setBookings(data);
       } catch (err) {
-        setError("Failed to retrieve bookings. Please try again.");
+        setError(err.response.data.message.toString());
         console.error("Failed to fetch bookings:", err);
       } finally {
         setLoading(false);
@@ -198,8 +198,7 @@ const ConsultantDashboardPage = () => {
                 <div className="flex items-center space-x-6">
                   <img
                     src={
-                      details.user.profilePicture ||
-                      "https://via.placeholder.com/150"
+                      `http://localhost:5555/uploads/${details.user.profilePicture}`
                     }
                     alt="Profile Picture"
                     className="w-24 h-24 rounded-full object-cover shadow-md"
