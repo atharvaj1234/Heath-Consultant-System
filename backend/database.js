@@ -148,6 +148,42 @@ async function createTables() {
         }
       );
 
+      db.run(`
+        CREATE TABLE IF NOT EXISTS chat_requests (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          userId INTEGER NOT NULL,
+          consultantId INTEGER NOT NULL,
+          bookingId INTEGER NOT NULL,  -- Add booking ID
+          status TEXT DEFAULT 'pending', -- 'pending', 'accepted', 'rejected'
+          FOREIGN KEY (userId) REFERENCES users(id),
+          FOREIGN KEY (consultantId) REFERENCES users(id),
+          FOREIGN KEY (bookingId) REFERENCES bookings(id),
+          UNIQUE (userId, consultantId, bookingId) -- Prevent duplicate requests
+        );
+      `, (err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+      });
+      
+      db.run(`
+        CREATE TABLE IF NOT EXISTS chats (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          chatRequestId INTEGER NOT NULL,  -- Link to the request
+          senderId INTEGER NOT NULL,
+          message TEXT NOT NULL,
+          timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (chatRequestId) REFERENCES chat_requests(id),
+          FOREIGN KEY (senderId) REFERENCES users(id)
+        );
+      `, (err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+      });
+
 db.run(
   `
   CREATE TABLE IF NOT EXISTS reviews (

@@ -17,13 +17,14 @@ import ConsultantDetails from './pages/ConsultantDetails';
 import Booking from './pages/Booking';
 import ConsultationDashboard from './pages/ConsultationDashboard';
 import HealthRecords from './pages/HealthRecords';
-import Messaging from './pages/Messaging';
+// import Messaging from './pages/Messaging';
 import Payment from './pages/Payment';
 import Review from './pages/Review';
 import AdminDashboard from './pages/AdminDashboard.jsx'; // Corrected import path and extension
 import ConsultantDashboardPage from './pages/ConsultantDashboardPage.jsx'; // Corrected import path and extension
 import UserPayments from './pages/UserPayments.jsx';
-import ConsultantEarnings from './pages/ConsultantEarnings.jsx'
+import ConsultantEarnings from './pages/ConsultantEarnings.jsx';
+import MessagingPage from './pages/MessagingPage.jsx'
 import './App.css';
 import './index.css'; //Importing index.css to solve global styling issues
 
@@ -94,43 +95,23 @@ function App() {
                     <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} setUserRole={setUserRole} setIsConsultant={setIsConsultant} setIsApproved={setIsApproved} onLoginSuccess={handleLoginSuccess} setProfilePicture={setProfilePicture} />} />
                     <Route path="/register" element={<Register />} />
                     <Route path="/userprofile" element={<UserProfile setProfilePicture={setProfilePicture} />} />
-
-                    {/* User routes, require login and user role */}
-                    {isLoggedIn && userRole === 'user' && (
-                        <>
-                            <Route path="/consultantsearch" element={<ConsultantSearch />} />
-                            <Route path="/consultantdetails/:id" element={<ConsultantDetails />} />
-                            <Route path="/booking/:id" element={<Booking />} />
-                            <Route path="/consultationdashboard" element={<ConsultationDashboard />} />
-                            <Route path="/healthrecords" element={<HealthRecords />} />
-                            <Route path="/messaging" element={<Messaging />} />
-                            <Route path="/payment" element={<Payment />} />
-                            <Route path="/review/:id" element={<Review />} />
-                            <Route path="/userpayments" element={<UserPayments />} />
-                        </>
-                    )}
-
-                    {/* Consultant profile and dashboard only accessible if logged in as consultant, and approved*/}
-                    {isLoggedIn && userRole === 'consultant' && (
-                        <>
+                    <Route path="/consultantsearch" element={<ConsultantSearch />} />
+                    <Route path="/consultantdetails/:id" element={<ConsultantDetails />} />
+                    <Route path="/booking/:id" element={<Booking />} />
+                    <Route path="/consultationdashboard" element={<ConsultationDashboard />} />
+                    <Route path="/healthrecords" element={<HealthRecords />} />
+                  <Route path="/messages" element={<MessagingPage/>}/>
+                    <Route path="/userpayments" element={<UserPayments />} />
+                    <Route path="/consultantearnings" element={<ConsultantEarnings/>}/>
+                    <Route path="/review/:id" element={<Review />} />
+                     <Route path="/admindashboard" element={<AdminDashboard />} />
                             <Route path="/consultantprofile" element={<ConsultantProfile />} />
                             <Route path="/consultantdashboard" element={<ConsultantDashboardPage />} />
-                            <Route path="/consultantearnings" element={<ConsultantEarnings/>}/>
-                        </>
-                    )}
-
-                    {/* Admin dashboard route, require login and admin role */}
-                    {isLoggedIn && userRole === 'admin' ? (
-                        <Route path="/admindashboard" element={<AdminDashboard />} />
-                    ) : (
-                        // Redirect to login page if not an admin or not logged in
-                        <Route path="/admindashboard" element={<Navigate to="/login" />} />
-                    )}
-
+                         <Route path="/admindashboard" element={<Navigate to="/login" />} />
                     <Route path="*" element={<NotFound />} />
                 </Routes>
             </div>
-            <Footer />
+                <Footer />
         </Router>
     );
 }

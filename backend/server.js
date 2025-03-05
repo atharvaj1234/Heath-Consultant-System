@@ -560,7 +560,323 @@ app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
       });
     });
 
-    
+    // Send Chat Request (POST)
+app.post("/api/chat/request", authenticateToken, async (req, res) => {
+  const userId = req.user.userId;
+  const { consultantId, bookingId } = req.body;
+  const db = getDb();
+
+  try {
+    // Verify user and booking
+    db.get(
+      "SELECT 1 FROM bookings WHERE id = ? AND userId = ? AND consultantId = ?",
+      [bookingId, userId, consultantId],
+      (err, booking) => {
+        if (err) {
+          return handleDatabaseError(
+            res,
+            err,
+            "Failed to verify booking ownership"
+          );
+        }
+
+        if (!booking) {
+          return res
+            .status(403)
+            .json({ message: "Invalid booking or unauthorized" });
+        }
+
+        // Check if payment is valid
+        db.get(
+          "SELECT 1 FROM payments WHERE bookingId = ? AND userId = ? AND status = 'paid'",
+          [bookingId, userId],
+          (err, payment) => {
+            if (err) {
+              return handleDatabaseError(
+                res,
+                err,
+                "Failed to verify payment status"
+              );
+            }
+
+            if (!payment) {
+              return res
+                .status(403)
+                .json({ message: "Payment not found or not paid" });
+            }
+
+            // Create the chat request
+            db.run(
+              "INSERT INTO chat_requests (userId, consultantId, bookingId) VALUES (?, ?, ?)",
+              [userId, consultantId, bookingId],
+              function (err) {
+                if (err) {
+                  return handleDatabaseError(
+                    res,
+                    err,
+                    "Failed to create chat request"
+                  );
+                }
+
+                res.status(201).json({
+                  message: "Chat request sent successfully",
+                  chatRequestId: this.lastID,
+                });
+              }
+            );
+          }
+        );
+      }
+    );
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to send chat request" });
+  }
+});
+
+// Get Chat Requests for Consultant (GET)
+// Get Chat Requests for a User (GET)
+app.get("/api/chat/requests", authenticateToken, async (req, res) => {
+  const userId = req.user.userId;
+  const db = getDb();
+
+  try {
+    // Determine the user's role (consultant or other)
+    db.get(
+      "SELECT isConsultant FROM users WHERE id = ?",
+      [userId],
+      async (err, user) => {
+        if (err) {
+          return handleDatabaseError(
+            res,
+            err,
+            "Failed to check user role"
+          );
+        }
+
+        let query = `
+          SELECT cr.*, u.fullName as userName, u.profilePicture as userProfilePicture, cu.fullName as consultantName, cu.profilePicture as consultantProfilePicture, b.date as bookingDate, b.time as bookingTime
+          FROM chat_requests cr
+          INNER JOIN users u ON cr.userId = u.id
+          INNER JOIN users cu ON cr.consultantId = cu.id
+          INNER JOIN bookings b ON cr.bookingId = b.id
+          WHERE `;
+
+        const params = [];
+
+        if (user && user.isConsultant === 1) {
+          // Consultant: Get all requests *for* this consultant
+          query += "cr.consultantId = ?";
+          params.push(userId);
+        } else {
+          // User: Get all requests *from* this user
+          query += "cr.userId = ?";
+          params.push(userId);
+        }
+
+        // Retrieve all messages
+        db.all(query, params, (err, requests) => {
+          if (err) {
+            return handleDatabaseError(
+              res,
+              err,
+              "Failed to retrieve chat requests"
+            );
+          }
+          res.json(requests);
+        });
+      }
+    );
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to retrieve chat requests" });
+  }
+});
+
+app.get("/api/chat/requestStatus/:consultantId", authenticateToken, async (req, res) => {
+  const userId = req.user.userId;
+  const { consultantId } = req.params;
+  const db = getDb();
+
+  try {
+    db.get(
+      "SELECT * FROM chat_requests WHERE userId = ? AND consultantId = ?",
+      [userId, consultantId],
+      (err, request) => {
+        if (err) {
+          return handleDatabaseError(
+            res,
+            err,
+            "Failed to retrieve chat request status"
+          );
+        }
+          console.log(request)
+        if (!request) {
+          return res.json({ message: "No Chat Requests" });
+        }
+        res.json({request});
+      }
+    );
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to retrieve chat request status" });
+  }
+});
+
+// Accept/Reject Chat Request (PUT)
+app.put("/api/chat/requests/:requestId", authenticateToken, async (req, res) => {
+  const { requestId } = req.params;
+  const { status } = req.body; // 'accepted' or 'rejected'
+  const userId = req.user.userId; // Consultant id
+  const db = getDb();
+
+  if (!["accepted", "rejected"].includes(status)) {
+    return res.status(400).json({ message: "Invalid status" });
+  }
+   db.get(
+    "SELECT isConsultant FROM users WHERE id = ?",
+    [userId],
+    (err, user) => {
+      if (err) {
+          return handleDatabaseError(
+            res,
+            err,
+            "Failed to check consultant role"
+          );
+        }
+
+        if (!user || user.isConsultant !== 1) {
+          return res
+            .status(403)
+            .json({ message: "User is not a consultant" });
+        }
+        try {
+          db.run(
+            "UPDATE chat_requests SET status = ? WHERE id = ? AND consultantId = ?",
+            [status, requestId, userId],
+            function (err) {
+              if (err) {
+                return handleDatabaseError(
+                  res,
+                  err,
+                  "Failed to update chat request status"
+                );
+              }
+
+              if (this.changes === 0) {
+                return res
+                  .status(404)
+                  .json({ message: "Chat request not found or unauthorized" });
+              }
+
+              res.json({ message: "Chat request updated successfully" });
+            }
+          );
+        } catch (error) {
+          console.error(error);
+          res.status(500).json({ message: "Failed to update chat request" });
+        }
+   });
+});
+
+// Get Messages for a Chat (GET)
+app.get("/api/chat/:chatRequestId/messages", authenticateToken, async (req, res) => {
+  const { chatRequestId } = req.params;
+  const userId = req.user.userId;
+  const db = getDb();
+
+  try {
+    // Validate user is part of this chat
+    db.get(
+      `SELECT 1 FROM chat_requests WHERE id = ? AND (userId = ? OR consultantId = ?) AND status = 'accepted'`,
+      [chatRequestId, userId, userId],
+      (err, chatRequest) => {
+        if (err) {
+          return handleDatabaseError(
+            res,
+            err,
+            "Failed to verify chat access"
+          );
+        }
+
+        if (!chatRequest) {
+          return res
+            .status(403)
+            .json({ message: "Unauthorized to access this chat" });
+        }
+
+        // Fetch messages
+        db.all(
+          "SELECT * FROM chats WHERE chatRequestId = ? ORDER BY timestamp",
+          [chatRequestId],
+          (err, messages) => {
+            if (err) {
+              return handleDatabaseError(
+                res,
+                err,
+                "Failed to retrieve messages"
+              );
+            }
+            res.json(messages);
+          }
+        );
+      }
+    );
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to retrieve messages" });
+  }
+});
+
+// Send Message (POST)
+app.post("/api/chat/:chatRequestId/messages", authenticateToken, async (req, res) => {
+  const { chatRequestId } = req.params;
+  const { message } = req.body;
+  const senderId = req.user.userId;
+  const db = getDb();
+
+  try {
+    // Validate user is part of this chat
+    db.get(
+      `SELECT 1 FROM chat_requests WHERE id = ? AND (userId = ? OR consultantId = ?) AND status = 'accepted'`,
+      [chatRequestId, senderId, senderId],
+      (err, chatRequest) => {
+        if (err) {
+          return handleDatabaseError(
+            res,
+            err,
+            "Failed to verify chat access"
+          );
+        }
+
+        if (!chatRequest) {
+          return res
+            .status(403)
+            .json({ message: "Unauthorized to send messages in this chat" });
+        }
+
+        // Insert message
+        db.run(
+          "INSERT INTO chats (chatRequestId, senderId, message) VALUES (?, ?, ?)",
+          [chatRequestId, senderId, message],
+          function (err) {
+            if (err) {
+              return handleDatabaseError(res, err, "Failed to send message");
+            }
+
+            res.status(201).json({
+              message: "Message sent successfully",
+              messageId: this.lastID,
+            });
+          }
+        );
+      }
+    );
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to send message" });
+  }
+});
 
     // Reviews (POST)
     app.post(

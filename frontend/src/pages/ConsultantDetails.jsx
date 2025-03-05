@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getConsultantById } from "../utils/api";
+import { getConsultantById, sendMessageRequest, chatStatus } from "../utils/api";
 import {
   Container,
   Typography,
@@ -33,6 +33,12 @@ const ConsultantDetails = () => {
   const [consultant, setConsultant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || 'guest');
+  const [bookingId, setBookingId] = useState();
+  const [hasBooking, setHasBooking] = useState();
+  const [openMessaging, setOpenMessaging] = useState(false);
+  const [isRequested, setIsRequested] = useState(false);
+
 
   useEffect(() => {
     const fetchConsultant = async () => {
@@ -41,6 +47,8 @@ const ConsultantDetails = () => {
       try {
         const data = await getConsultantById(id);
         setConsultant(data);
+        //Check If User Has A Booking
+
       } catch (err) {
         setError("Failed to retrieve consultant details. Please try again.");
         setConsultant(null);
@@ -50,8 +58,56 @@ const ConsultantDetails = () => {
       }
     };
 
+    const getChatState = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setError('Authentication required. Please login.');
+          return;
+        }
+        const data = await chatStatus(token, id);
+        if (data.message) {
+          setOpenMessaging(false)
+        } else {
+          setOpenMessaging(true);
+        }
+
+      } catch (err) {
+        setError('Failed to Retrieve Chat Status, please try again.');
+        console.error("Failed to fetch consultant:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
     fetchConsultant();
+    getChatState();
   }, [id]);
+
+
+  const sendMsgRequest = async (consultantId, bookingId) => {
+    setLoading(true);
+    setError('');
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Authentication required. Please login.');
+        return;
+      }
+      await sendMessageRequest(token, consultantId, bookingId);
+      console.log(consultantId)
+      setOpenMessaging(true);
+      const data = await chatStatus(token, id);
+    } catch (err) {
+      setError('Failed to Request Msg. Please try again.');
+      console.error('Failed to fetch consultant:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   if (loading) {
     return (
@@ -118,26 +174,26 @@ const ConsultantDetails = () => {
               </Typography>
             </Grid>
             <Grid item xs={12} md={4} sx={{ textAlign: "right" }}>
-              <Button
-                component={Link}
-                to={`/booking/${consultant.consultant.id}`}
-                variant="contained"
-                color="primary"
-                size="large"
-              >
-                Book Appointment
-              </Button>
-              <Grid item xs={12} md={4} sx={{ textAlign: "right" }}>
-              <Button
-                component={Link}
-                to={`/messaging/${consultant.consultant.id}`}
-                variant="contained"
-                color="primary"
-                size="large"
-              >
-                Contact
-              </Button>
-            </Grid>
+              {userRole === 'user' && (!openMessaging ? (
+                <Button
+                  onClick={() => sendMsgRequest(id, 1)}
+                  variant="contained"
+                  color="primary"
+                  size="large"
+                >
+                  Message Request
+                </Button>
+              ) : (
+                <Button
+                  component={Link}
+                  to={`/messages`}
+                  variant="contained"
+                  color="primary"
+                  size="large"
+                >
+                  Messaging Now!
+                </Button>
+              ))}
             </Grid>
             <Grid item xs={12}>
               <Typography variant="h6">About</Typography>
@@ -196,9 +252,9 @@ const ConsultantDetails = () => {
                 consultant.reviews.map((review) => (
                   <div key={review.id} className="mb-4 p-4 bg-gray-50 rounded-lg shadow-md">
                     <div className="flex items-center mb-2">
-                       {[1, 2, 3, 4, 5].map((star) => (
-                          <Star key={star} className={`h-5 w-5 ${star <= review.rating ? 'text-yellow-500' : 'text-gray-300'}`} />
-                       ))}
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star key={star} className={`h-5 w-5 ${star <= review.rating ? 'text-yellow-500' : 'text-gray-300'}`} />
+                      ))}
                     </div>
                     <p className="text-gray-700">{review.review}</p>
                   </div>

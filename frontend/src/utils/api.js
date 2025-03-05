@@ -177,6 +177,47 @@ export const createMessage = async (token, consultantId, message) => {
     }
 };
 
+export const sendMessage = async (token, chatRequestId, message) => {
+    try {
+      const response = await axios.post(`${BASE_URL}/api/chat/${chatRequestId}/messages`,  {message},{
+          headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.data;
+  } catch (error) {
+      console.error('Failed to create message:', error);
+      throw error;
+  }
+};
+
+export const sendMessageRequest = async (token, consultantId, bookingId) => {
+    try {
+        const response = await axios.post(`${BASE_URL}/api/chat/request`, { consultantId, bookingId }, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Failed to send message request:', error);
+        throw error;
+    }
+};
+
+export const chatStatus = async (token, consultantId) => {
+    try {
+        const response = await axios.get(`${BASE_URL}/api/chat/requestStatus/${consultantId}`, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+        console.log(response.data)
+        return response.data;
+    } catch (error) {
+        console.error('Failed to fetch message request:', error);
+        throw error;
+    }
+};
+
 export const getPayments = async (token) => {
     try {
         const response = await axios.get(`${BASE_URL}/api/payments`, {
