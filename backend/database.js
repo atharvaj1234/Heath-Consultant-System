@@ -56,7 +56,8 @@ async function createTables() {
       speciality TEXT DEFAULT NULL,
       availability TEXT DEFAULT NULL,  -- Store as JSON string
       bankAccount TEXT DEFAULT NULL,
-
+      consultingFees TEXT DEFAULT NULL,
+      certificates TEXT DEFAULT NULL,
       isApproved INTEGER DEFAULT 0 -- 1 if approved, 0 otherwise
     );
       `,

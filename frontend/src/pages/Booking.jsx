@@ -282,15 +282,19 @@ const Booking = () => {
                         <List>
                             <ListItem>
                                 <ListItemText primary="Consultation Fee" />
-                                <Typography>$50.00</Typography>
+                                <Typography>₹{consultant?.consultant.consultingFees}</Typography>
                             </ListItem>
                             <ListItem>
-                                <ListItemText primary="Tax (8%)" />
-                                <Typography>$4.00</Typography>
+                                <ListItemText primary="Platform Fee" />
+                                <Typography>₹25</Typography>
+                            </ListItem>
+                            <ListItem>
+                                <ListItemText primary="Tax (18%)" />
+                                <Typography>₹{(Number(consultant?.consultant.consultingFees) * 18/100).toFixed(2)}</Typography>
                             </ListItem>
                             <ListItem>
                                 <ListItemText primary="Total" sx={{ fontWeight: 'bold' }} />
-                                <Typography sx={{ fontWeight: 'bold' }}>$54.00</Typography>
+                                <Typography sx={{ fontWeight: 'bold' }}>₹{(Number(consultant?.consultant.consultingFees) + Number(consultant?.consultant.consultingFees) * 18/100 + 25).toFixed(2)}</Typography>
                             </ListItem>
                         </List>
                     </Grid>

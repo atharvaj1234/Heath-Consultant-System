@@ -165,7 +165,7 @@ const MessagingPage = () => {
                     {isConsultant ? (
                       <>
                         <img
-                          src={`http://localhost:5555/uploads/${req.user.userProfilePicture}`}
+                          src={`http://localhost:5555/${req.user.userProfilePicture}`}
                           alt={`${req.userName}'s Profile`}
                           className="w-10 h-10 rounded-full object-cover shadow-inner"
                           onError={(e) => {
@@ -189,7 +189,7 @@ const MessagingPage = () => {
                     ) : (
                       <>
                         <img
-                          src={`http://localhost:5555/uploads/${req .consultantProfilePicture}`}
+                          src={`http://localhost:5555/${req .consultantProfilePicture}`}
                           alt={`${req.consultantName}'s Profile`}
                           className="w-10 h-10 rounded-full object-cover shadow-inner"
                           onError={(e) => {

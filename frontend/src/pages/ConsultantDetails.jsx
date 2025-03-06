@@ -208,7 +208,7 @@ const ConsultantDetails = () => {
                 }}>
                     <Avatar
                         alt={consultant.consultant.fullName}
-                        src={`http://localhost:5555/uploads/${consultant.consultant.profilePicture}`}
+                        src={`http://localhost:5555/${consultant.consultant.profilePicture}`}
                         sx={{ width: 80, height: 80, margin: '0 auto', border: '3px solid white' }}
                     />
                     <Typography variant="h5" component="h2" mt={2}>

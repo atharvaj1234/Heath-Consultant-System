@@ -1,3 +1,4 @@
+// File: Register.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mail, Lock, User } from "lucide-react";
@@ -25,7 +26,7 @@ import { registerUser } from "../utils/api";
 
 const getSteps = (role) => {
   if (role === "consultant") {
-    return ["Basic Information", "Professional Details"];
+    return ["Basic Information", "Professional Details", "Bank Details & Fees"];
   } else {
     return ["Basic Information", "Medical Information"];
   }
@@ -53,7 +54,12 @@ const Register = () => {
     medicalHistory: "",
     currentPrescriptions: "",
     profilePicture: null,
+    //certificates: null, // Consultant only - Multiple files
+    bankAccount: "", // Consultant only
+    consultingFees: "", // Consultant only
   });
+
+  const [certificateData, setCertificateData] = useState([{ file: null, name: '' }]);
 
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -97,33 +103,46 @@ const Register = () => {
       return "Password must be at least 6 characters long";
     }
 
-    if (role === "consultant" && step) {
-      if (!formData.bio || formData.bio.trim() === "") {
-        return "Bio is required";
-      }
-
-      if (!formData.qualification || formData.qualification.trim() === "") {
-        return "Qualification is required";
-      }
-
-      if (
-        !formData.areasOfExpertise ||
-        formData.areasOfExpertise.trim() === ""
-      ) {
-        return "Areas of Expertise are required";
-      }
-
-      if (!formData.speciality || formData.speciality.trim() === "") {
-        return "Speciality is required";
-      }
-
-      try {
-        const availability = JSON.parse(formData.availability);
-        if (Object.keys(availability).length === 0) {
-          return "At least one availability slot must be selected";
+    if (role === "consultant") {
+      if (step === 1) { // Professional Details Validation
+        if (!formData.bio || formData.bio.trim() === "") {
+          return "Bio is required";
         }
-      } catch {
-        errors.availability = "Invalid availability format";
+
+        if (!formData.qualification || formData.qualification.trim() === "") {
+          return "Qualification is required";
+        }
+
+        if (
+          !formData.areasOfExpertise ||
+          formData.areasOfExpertise.trim() === ""
+        ) {
+          return "Areas of Expertise are required";
+        }
+
+        if (!formData.speciality || formData.speciality.trim() === "") {
+          return "Speciality is required";
+        }
+
+         if (certificateData.some(item => !item.file || !item.name.trim())) {
+              return "All certificates and names are required";
+          }
+
+        try {
+          const availability = JSON.parse(formData.availability);
+          if (Object.keys(availability).length === 0) {
+            return "At least one availability slot must be selected";
+          }
+        } catch {
+          errors.availability = "Invalid availability format";
+        }
+      } else if (step === 2) { // Bank Details & Fees Validation
+        if (!formData.bankAccount || formData.bankAccount.trim() === "") {
+          return "Bank Account is required";
+        }
+        if (!formData.consultingFees || isNaN(formData.consultingFees) || parseFloat(formData.consultingFees) <= 0) {
+          return "Consulting Fees must be a valid positive number";
+        }
       }
     }
 
@@ -149,11 +168,12 @@ const Register = () => {
 
   const handleNext = () => {
     setError("");
-    114;
 
     var err;
     if (activeStep == steps.length - 1) {
-      err = validateForm(1);
+      err = validateForm(2); //last Step Validate Step 2
+    } else if (activeStep == 1) {
+      err = validateForm(1); // Professional Details
     } else err = validateForm();
     if (err) {
       setError(err);
@@ -196,10 +216,19 @@ const Register = () => {
 
     try {
       const formDataToSend = new FormData();
-      for (const key in formData) {
-        formDataToSend.append(key, formData[key]);
-      }
-      formDataToSend.append("role", role);
+for (const key in formData) {
+    formDataToSend.append(key, formData[key]);
+}
+
+const certificateFiles = certificateData.map(item => item.file);
+const certificateNames = certificateData.map(item => item.name);
+
+certificateFiles.forEach(file => {
+    formDataToSend.append("certificates", file);
+});
+formDataToSend.append("certificateNames", JSON.stringify(certificateNames));
+
+formDataToSend.append("role", role);
 
       await registerUser(formDataToSend);
       navigate("/login");
@@ -315,7 +344,37 @@ const Register = () => {
             formData={formData}
             setFormData={setFormData}
             role={role}
+            certificateData={certificateData}
+            setCertificateData={setCertificateData}
           />
+        );
+      case 2: // Bank Details & Fees (Consultant Only)
+        return (
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Bank Account Number"
+                name="bankAccount"
+                value={formData.bankAccount}
+                onChange={(e) =>
+                  setFormData({ ...formData, bankAccount: e.target.value })
+                }
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Consulting Fees"
+                name="consultingFees"
+                type="number"
+                value={formData.consultingFees}
+                onChange={(e) =>
+                  setFormData({ ...formData, consultingFees: e.target.value })
+                }
+              />
+            </Grid>
+          </Grid>
         );
       default:
         return "Unknown step";

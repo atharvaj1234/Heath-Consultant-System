@@ -107,7 +107,7 @@ const ConsultantSearch = () => {
                         <div key={consultant.id} className="rounded-2xl overflow-hidden shadow-md transition-shadow duration-300 hover:shadow-lg bg-gradient-to-br from-white to-gray-100">
                             <img
                                 className="w-full h-52 object-cover object-center"
-                                src={`http://localhost:5555/uploads/${consultant.profilePicture}`}
+                                src={`http://localhost:5555/${consultant.profilePicture}`}
                                 alt={consultant.fullName}
                                 onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/600x400" }}
                             />

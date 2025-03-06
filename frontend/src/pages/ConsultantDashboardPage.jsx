@@ -198,7 +198,7 @@ const ConsultantDashboardPage = () => {
                 <div className="flex items-center space-x-6">
                   <img
                     src={
-                      `http://localhost:5555/uploads/${details.user.profilePicture}`
+                      `http://localhost:5555/${details.user.profilePicture}`
                     }
                     alt="Profile Picture"
                     className="w-24 h-24 rounded-full object-cover shadow-md"

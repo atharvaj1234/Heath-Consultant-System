@@ -18,6 +18,7 @@ import {
     Checkbox,
     ListItemSecondaryAction,
     IconButton,
+    Button,
 } from '@mui/material';
 import { TimePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -36,7 +37,7 @@ const MenuProps = {
 
 const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-const RegisterForm = ({ formData, setFormData, role }) => {
+const RegisterForm = ({ formData, setFormData, role, certificateData, setCertificateData }) => {
     const handleInputChange = (e) => {
         const newForm = { ...formData, [e.target.name]: e.target.value }
         setFormData(newForm);
@@ -146,6 +147,28 @@ const RegisterForm = ({ formData, setFormData, role }) => {
         updateAvailability();
     }, [startTime, endTime, selectedDays])
 
+    const handleCertificateChange = (index, e) => {
+        const newCertificateData = [...certificateData];
+        newCertificateData[index] = { ...newCertificateData[index], file: e.target.files[0] };
+        setCertificateData(newCertificateData);
+    };
+
+    const handleCertificateNameChange = (index, e) => {
+        const newCertificateData = [...certificateData];
+        newCertificateData[index] = { ...newCertificateData[index], name: e.target.value };
+        setCertificateData(newCertificateData);
+    };
+
+    const addCertificateField = () => {
+        setCertificateData([...certificateData, { file: null, name: '' }]);
+    };
+
+    const removeCertificateField = (index) => {
+        const newCertificateData = [...certificateData];
+        newCertificateData.splice(index, 1);
+        setCertificateData(newCertificateData);
+    };
+
     return (
         <>
             {/* Basic Information */}
@@ -191,6 +214,43 @@ const RegisterForm = ({ formData, setFormData, role }) => {
                                 onChange={handleInputChange}
                             />
                         </Grid>
+                        <Grid item xs={12} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            Certificates
+                        </Grid>
+
+                        {certificateData.map((certificate, index) => (
+                            <Grid container spacing={2} key={index} item xs={12}>
+                                <Grid item xs={6}>
+                                    <TextField
+                                        fullWidth
+                                        label={`Certificate ${index + 1} Name`}
+                                        value={certificate.name}
+                                        onChange={(e) => handleCertificateNameChange(index, e)}
+                                    />
+                                </Grid>
+                                <Grid item xs={6}>
+                                    <TextField
+                                        fullWidth
+                                        type="file"
+                                        label={`Certificate ${index + 1} File`}
+                                        InputLabelProps={{ shrink: true }}
+                                        onChange={(e) => handleCertificateChange(index, e)}
+                                    />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <Button variant="contained" color="error" onClick={() => removeCertificateField(index)}>
+                                        Remove
+                                    </Button>
+                                </Grid>
+                            </Grid>
+                        ))}
+
+                        <Grid item xs={12}>
+                            <Button variant="contained" color="primary" onClick={addCertificateField}>
+                                Add Certificate
+                            </Button>
+                        </Grid>
+
                         <Grid item xs={12} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 Availability
                             </Grid>

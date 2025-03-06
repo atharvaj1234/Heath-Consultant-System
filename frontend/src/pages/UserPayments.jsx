@@ -121,10 +121,10 @@ const UserPayments = () => {
                       {payment.status}
                     </td>
                      <td className="px-5 py-3 border-b border-gray-200 text-sm">
-                      {payment.refundAmount ? `$${payment.refundAmount}` : "-"}
+                      {payment.refundAmount ? `$${Number(payment.refundAmount).toFixed(2)}` : "-"}
                     </td>
                     <td className="px-5 py-3 border-b border-gray-200 text-sm">
-                      ${payment.finalAmount}
+                      ${Number(payment.finalAmount).toFixed(2)}
                     </td>
                   </tr>
                 ))}

@@ -456,3 +456,18 @@ export const getUserPayments = async (token) => {
       throw error;
     }
   };
+
+  // New API function to fetch consultant documents
+  export const getConsultantDocuments = async (token, consultantId) => {
+    try {
+      const response = await axios.get(`${BASE_URL}/api/consultant/${consultantId}/documents`, {
+        headers: {
+          Authorization: `Bearer ${token}`, // Add the JWT token to the Authorization header
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch consultant documents:', error);
+      throw error;
+    }
+  };
