@@ -69,21 +69,19 @@ const upload = multer({ storage: storage });
 // Initialize database
 initializeDatabase()
   .then(() => {
-// Helper function to handle database errors
-const handleDatabaseError = (req, res, err, message) => {
-  console.error(req.originalUrl + ": ", err.message);
-  if (res && typeof res.status === 'function') {
-    return res
-      .status(500)
-      .json({
-        message: message || "Database operation failed",
-        error: err.message,
-      });
-  } else {
-    console.error("Response object is not valid:", res);
-    return; // Or throw an error, depending on the desired behavior
-  }
-};
+    // Helper function to handle database errors
+    const handleDatabaseError = (req, res, err, message) => {
+      console.error(req.originalUrl + ": ", err.message);
+      if (res && typeof res.status === "function") {
+        return res.status(500).json({
+          message: message || "Database operation failed",
+          error: err.message,
+        });
+      } else {
+        console.error("Response object is not valid:", res);
+        return; // Or throw an error, depending on the desired behavior
+      }
+    };
 
     // Helper function to generate JWT token
     const generateToken = (user) => {
@@ -94,149 +92,152 @@ const handleDatabaseError = (req, res, err, message) => {
       ); // Use environment variable for secret
     };
 
-// User Registration
-app.post(
-  "/api/register",
-  upload.fields([
-    { name: "profilePicture", maxCount: 1 },
-    { name: "certificates", maxCount: 10 }, // Allow up to 10 certificates
-  ]),
-  [
-    body("fullName").notEmpty().withMessage("Full name is required"),
-    body("email").isEmail().withMessage("Invalid email address"),
-    body("password")
-      .isLength({ min: 6 })
-      .withMessage("Password must be at least 6 characters long"),
-    body("role")
-      .isIn(["user", "consultant", "admin"]) //Removed admin role from here
-      .withMessage("Invalid role selected"),
-    body("phone").notEmpty().withMessage("Phone number is required"), //Added phone validation
-  ],
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const {
-      fullName,
-      email,
-      password,
-      role,
-      phone, //Get the phone number here
-      bloodGroup,
-      medicalHistory,
-      currentPrescriptions,
-      bio, // Consultant specific
-      qualification, // Consultant specific
-      areasOfExpertise,
-      speciality, // Consultant specific
-      availability, // Consultant specific
-      bankAccount, // Consultant Specific
-      consultingFees, // Consultant Specific
-    } = req.body;
-
-    const profilePicture =
-      req.files && req.files["profilePicture"]
-        ? req.files["profilePicture"][0].path
-        : null;
-
-    let certificatesData = [];
-
-    if (req.files && req.files["certificates"]) {
-      const certificates = Array.isArray(req.files["certificates"])
-        ? req.files["certificates"]
-        : [req.files["certificates"]];
-
-      try {
-        const certificateNames = JSON.parse(req.body.certificateNames); // Parse certificate names from request body
-        certificatesData = certificates.map((file, index) => ({
-            name: certificateNames[index] || file.originalname, // Use provided name or original filename
-            path: file.path,
-        }));
-      } catch (error) {
-        console.error("Error parsing certificateNames:", error);
-        return res.status(400).json({ message: "Invalid certificate names format" });
-      }
-    }
-
-    try {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const db = getDb();
-
-      const isConsultant = role === "consultant" ? 1 : 0; // Set isConsultant flag
-
-      // Construct the SQL query dynamically
-      let sql =
-        "INSERT INTO users (fullName, email, password, role, phone, isConsultant, profilePicture";
-      let values = [
-        fullName,
-        email,
-        hashedPassword,
-        role,
-        phone,
-        isConsultant,
-        profilePicture,
-      ];
-
-      // Add fields based on role
-      if (role === "user") {
-        sql +=
-          ", bloodGroup, medicalHistory, currentPrescriptions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        values.push(bloodGroup, medicalHistory, currentPrescriptions);
-      } else if (role === "consultant") {
-        sql +=
-          ", bio, qualification, areasOfExpertise, speciality, availability, bankAccount, consultingFees, certificates, isApproved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        values.push(
-          bio,
-          qualification,
-          areasOfExpertise,
-          speciality,
-          availability,
-          bankAccount,
-          consultingFees,
-          JSON.stringify(certificatesData),
-          0
-        ); // isApproved default 0
-      } else {
-        sql += ") VALUES (?, ?, ?, ?, ?, ?, ?)"; //role = admin
-      }
-
-      // Execute the SQL query
-      db.run(sql, values, function (err) {
-        if (err) {
-          if (err.message.includes("UNIQUE constraint failed")) {
-            return res.status(400).json({ message: "Email already exists" });
-          }
-          return handleDatabaseError(
-            req,
-            res,
-            err,
-            "Registration failed due to database error"
-          );
+    // User Registration
+    app.post(
+      "/api/register",
+      upload.fields([
+        { name: "profilePicture", maxCount: 1 },
+        { name: "certificates", maxCount: 10 }, // Allow up to 10 certificates
+      ]),
+      [
+        body("fullName").notEmpty().withMessage("Full name is required"),
+        body("email").isEmail().withMessage("Invalid email address"),
+        body("password")
+          .isLength({ min: 6 })
+          .withMessage("Password must be at least 6 characters long"),
+        body("role")
+          .isIn(["user", "consultant", "admin"]) //Removed admin role from here
+          .withMessage("Invalid role selected"),
+        body("phone").notEmpty().withMessage("Phone number is required"), //Added phone validation
+      ],
+      async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+          return res.status(400).json({ errors: errors.array() });
         }
 
-        const userId = this.lastID;
-
-        // Send successful response
-        res.status(201).json({
-          id: userId,
+        const {
           fullName,
           email,
-          phone,
+          password,
           role,
-          isConsultant,
-          isApproved: 0,
-          profilePicture,
-        });
-      });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: "Registration failed" });
-    }
-  }
-);
+          phone, //Get the phone number here
+          bloodGroup,
+          medicalHistory,
+          currentPrescriptions,
+          bio, // Consultant specific
+          qualification, // Consultant specific
+          areasOfExpertise,
+          speciality, // Consultant specific
+          availability, // Consultant specific
+          bankAccount, // Consultant Specific
+          consultingFees, // Consultant Specific
+        } = req.body;
 
+        const profilePicture =
+          req.files && req.files["profilePicture"]
+            ? req.files["profilePicture"][0].path
+            : null;
+
+        let certificatesData = [];
+
+        if (req.files && req.files["certificates"]) {
+          const certificates = Array.isArray(req.files["certificates"])
+            ? req.files["certificates"]
+            : [req.files["certificates"]];
+
+          try {
+            const certificateNames = JSON.parse(req.body.certificateNames); // Parse certificate names from request body
+            certificatesData = certificates.map((file, index) => ({
+              name: certificateNames[index] || file.originalname, // Use provided name or original filename
+              path: file.path,
+            }));
+          } catch (error) {
+            console.error("Error parsing certificateNames:", error);
+            return res
+              .status(400)
+              .json({ message: "Invalid certificate names format" });
+          }
+        }
+
+        try {
+          const hashedPassword = await bcrypt.hash(password, 10);
+          const db = getDb();
+
+          const isConsultant = role === "consultant" ? 1 : 0; // Set isConsultant flag
+
+          // Construct the SQL query dynamically
+          let sql =
+            "INSERT INTO users (fullName, email, password, role, phone, isConsultant, profilePicture";
+          let values = [
+            fullName,
+            email,
+            hashedPassword,
+            role,
+            phone,
+            isConsultant,
+            profilePicture,
+          ];
+
+          // Add fields based on role
+          if (role === "user") {
+            sql +=
+              ", bloodGroup, medicalHistory, currentPrescriptions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            values.push(bloodGroup, medicalHistory, currentPrescriptions);
+          } else if (role === "consultant") {
+            sql +=
+              ", bio, qualification, areasOfExpertise, speciality, availability, bankAccount, consultingFees, certificates, isApproved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            values.push(
+              bio,
+              qualification,
+              areasOfExpertise,
+              speciality,
+              availability,
+              bankAccount,
+              consultingFees,
+              JSON.stringify(certificatesData),
+              0
+            ); // isApproved default 0
+          } else {
+            sql += ") VALUES (?, ?, ?, ?, ?, ?, ?)"; //role = admin
+          }
+
+          // Execute the SQL query
+          db.run(sql, values, function (err) {
+            if (err) {
+              if (err.message.includes("UNIQUE constraint failed")) {
+                return res
+                  .status(400)
+                  .json({ message: "Email already exists" });
+              }
+              return handleDatabaseError(
+                req,
+                res,
+                err,
+                "Registration failed due to database error"
+              );
+            }
+
+            const userId = this.lastID;
+
+            // Send successful response
+            res.status(201).json({
+              id: userId,
+              fullName,
+              email,
+              phone,
+              role,
+              isConsultant,
+              isApproved: 0,
+              profilePicture,
+            });
+          });
+        } catch (error) {
+          console.error(error);
+          res.status(500).json({ message: "Registration failed" });
+        }
+      }
+    );
 
     // User Login
     app.post(
@@ -316,43 +317,57 @@ app.post(
       });
     };
 
+    // Endpoint to fetch consultant's documents
+    app.get("/api/consultant/:consultantId/documents", async (req, res) => {
+      const { consultantId } = req.params;
 
-// Endpoint to fetch consultant's documents
-app.get("/api/consultant/:consultantId/documents", async (req, res) => {
-  const { consultantId } = req.params;
+      try {
+        const db = getDb();
 
-  try {
-    const db = getDb();
+        // Fetch user by ID
+        db.get(
+          "SELECT certificates FROM users WHERE id = ? AND role = 'consultant'",
+          [consultantId],
+          (err, row) => {
+            if (err) {
+              return handleDatabaseError(
+                req,
+                res,
+                err,
+                "Failed to fetch consultant documents"
+              );
+            }
 
-    // Fetch user by ID
-    db.get("SELECT certificates FROM users WHERE id = ? AND role = 'consultant'", [consultantId], (err, row) => {
-      if (err) {
-        return handleDatabaseError(req, res, err, "Failed to fetch consultant documents");
+            if (!row) {
+              return res
+                .status(404)
+                .json({
+                  message: "Consultant not found or does not have documents.",
+                });
+            }
+            // Parse the certificates from string to array
+            const certificates = JSON.parse(row.certificates) || [];
+
+            res.status(200).json({ certificates });
+          }
+        );
+      } catch (error) {
+        console.error(error);
+        res
+          .status(500)
+          .json({ message: "Failed to fetch consultant documents" });
       }
-
-      if (!row) {
-        return res.status(404).json({ message: "Consultant not found or does not have documents." });
-      }
-      // Parse the certificates from string to array
-      const certificates = JSON.parse(row.certificates) || [];
-
-      res.status(200).json({ certificates });
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to fetch consultant documents" });
-  }
-});
 
     // User Payments API (GET)
-// User Payments API (GET)
-app.get("/api/user/payments", authenticateToken, async (req, res) => {
-  const userId = req.user.userId;
-  const db = getDb();
+    // User Payments API (GET)
+    app.get("/api/user/payments", authenticateToken, async (req, res) => {
+      const userId = req.user.userId;
+      const db = getDb();
 
-  try {
-    db.all(
-      `SELECT
+      try {
+        db.all(
+          `SELECT
           p.*,
           b.date AS bookingDate,
           b.time AS bookingTime,
@@ -365,42 +380,46 @@ app.get("/api/user/payments", authenticateToken, async (req, res) => {
           refunds r ON p.id = r.paymentId
         WHERE
           p.userId = ?`,
-      [userId],
-      (err, payments) => {
-        if (err) {
-          return handleDatabaseError(res, err, "Failed to retrieve payments");
-        }
+          [userId],
+          (err, payments) => {
+            if (err) {
+              return handleDatabaseError(
+                res,
+                err,
+                "Failed to retrieve payments"
+              );
+            }
 
-        // Process payments to calculate final amount
-        const processedPayments = payments.map((payment) => {
-          let finalAmount = payment.amount;
-          if (payment.status === "refunded" && payment.refundAmount) {
-            finalAmount -= payment.refundAmount; // Make the refund amount negative
+            // Process payments to calculate final amount
+            const processedPayments = payments.map((payment) => {
+              let finalAmount = payment.amount;
+              if (payment.status === "refunded" && payment.refundAmount) {
+                finalAmount -= payment.refundAmount; // Make the refund amount negative
+              }
+
+              return {
+                ...payment,
+                finalAmount: finalAmount,
+              };
+            });
+
+            res.json(processedPayments);
           }
-
-          return {
-            ...payment,
-            finalAmount: finalAmount,
-          };
-        });
-
-        res.json(processedPayments);
+        );
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Failed to retrieve payments" });
       }
-    );
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to retrieve payments" });
-  }
-});
+    });
 
-// Consultant Earnings API (GET)
-app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
-  const userId = req.user.userId;
-  const db = getDb();
+    // Consultant Earnings API (GET)
+    app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
+      const userId = req.user.userId;
+      const db = getDb();
 
-  try {
-    db.all(
-      `
+      try {
+        db.all(
+          `
       SELECT p.*, b.date as bookingDate, b.time as bookingTime
       FROM payments p
       INNER JOIN bookings b ON p.bookingId = b.id
@@ -408,20 +427,24 @@ app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
       AND p.status = 'paid'
       AND b.status NOT IN ('rejected', 'canceled')  -- Exclude rejected and cancelled bookings
       `,
-      [userId],
-      (err, earnings) => {
-        if (err) {
-          return handleDatabaseError(res, err, "Failed to retrieve earnings");
-        }
+          [userId],
+          (err, earnings) => {
+            if (err) {
+              return handleDatabaseError(
+                res,
+                err,
+                "Failed to retrieve earnings"
+              );
+            }
 
-        res.json(earnings);
+            res.json(earnings);
+          }
+        );
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Failed to retrieve earnings" });
       }
-    );
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to retrieve earnings" });
-  }
-});
+    });
 
     // User Profile (GET)
     app.get("/api/profile", authenticateToken, (req, res) => {
@@ -492,7 +515,7 @@ app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
           speciality,
           availability,
           bankAccount,
-          } = req.body;
+        } = req.body;
         const profilePicture = req.file ? req.file.path : null;
         const db = getDb();
 
@@ -504,8 +527,17 @@ app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
             ", bloodGroup = ?, medicalHistory = ?, currentPrescriptions = ?";
           values.push(bloodGroup, medicalHistory, currentPrescriptions);
         } else if (req.user.role === "consultant") {
-          sql += ", phone = ?, bio = ?, qualification = ?, areasOfExpertise = ?, speciality = ?, availability = ?, bankAccount = ?";
-          values.push(phone, bio, qualification, areasOfExpertise, speciality, availability, bankAccount);
+          sql +=
+            ", phone = ?, bio = ?, qualification = ?, areasOfExpertise = ?, speciality = ?, availability = ?, bankAccount = ?";
+          values.push(
+            phone,
+            bio,
+            qualification,
+            areasOfExpertise,
+            speciality,
+            availability,
+            bankAccount
+          );
         }
         sql += ", profilePicture = ? WHERE id = ?";
         values.push(profilePicture, userId);
@@ -559,9 +591,15 @@ app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
           .withMessage("Qualifications are required"),
         body("availability").notEmpty().withMessage("Availability is required"),
         body("bio").optional().isString().withMessage("Bio must be a string"),
-        body("areasOfExpertise").optional().isString().withMessage("Areas of expertise must be a string"),
+        body("areasOfExpertise")
+          .optional()
+          .isString()
+          .withMessage("Areas of expertise must be a string"),
         body("fullName").notEmpty().withMessage("Full name is required"),
-        body("profilePicture").optional().isURL().withMessage("Profile picture must be a valid URL"),
+        body("profilePicture")
+          .optional()
+          .isURL()
+          .withMessage("Profile picture must be a valid URL"),
       ],
       (req, res) => {
         const userId = req.user.userId;
@@ -575,7 +613,7 @@ app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
           profilePicture,
         } = req.body; // Extract all fields from the request body
         const db = getDb();
-    
+
         // Verify if the user is a consultant before updating the profile
         db.get(
           "SELECT isConsultant FROM users WHERE id = ?",
@@ -584,13 +622,13 @@ app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
             if (err) {
               return handleDatabaseError(res, err, "Failed to check user role");
             }
-    
+
             if (!user || user.isConsultant !== 1) {
               return res
                 .status(403)
                 .json({ message: "User is not a consultant" });
             }
-    
+
             // Update the consultant profile (Corrected field name: 'speciality' to 'specialty')
             db.run(
               `UPDATE users SET
@@ -620,7 +658,7 @@ app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
                     "Failed to update consultant profile"
                   );
                 }
-    
+
                 res.json({
                   userId,
                   fullName,
@@ -640,7 +678,8 @@ app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
     // List Consultants (GET)
     app.get("/api/consultants", (req, res) => {
       const { specialty, rating, availability } = req.query;
-      let query = "SELECT * FROM users WHERE isConsultant = 1 AND isApproved = 1"; // Start with a base query
+      let query =
+        "SELECT * FROM users WHERE isConsultant = 1 AND isApproved = 1"; // Start with a base query
 
       const params = [];
       if (specialty) {
@@ -670,10 +709,10 @@ app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
       const userId = req.user.userId;
       const { consultantId, bookingId, message } = req.body;
       const db = getDb();
-    
+
       // Promisify database queries
       const dbGet = promisify(db.get).bind(db);
-    
+
       // Custom function to promisify `db.run()`
       const dbRun = (query, params) => {
         return new Promise((resolve, reject) => {
@@ -686,40 +725,44 @@ app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
           });
         });
       };
-    
+
       try {
         // Verify booking exists and belongs to user
         const booking = await dbGet(
           "SELECT 1 FROM bookings WHERE id = ? AND userId = ? AND consultantId = ?",
           [bookingId, userId, consultantId]
         );
-    
+
         if (!booking) {
-          return res.status(403).json({ message: "Invalid booking or unauthorized" });
+          return res
+            .status(403)
+            .json({ message: "Invalid booking or unauthorized" });
         }
-    
+
         // Check if payment is valid
         const payment = await dbGet(
           "SELECT 1 FROM payments WHERE bookingId = ? AND userId = ? AND status = 'paid'",
           [bookingId, userId]
         );
-    
+
         if (!payment) {
-          return res.status(403).json({ message: "Payment not found or not paid" });
+          return res
+            .status(403)
+            .json({ message: "Payment not found or not paid" });
         }
-    
+
         // Create the chat request
         const { lastID: chatRequestId } = await dbRun(
           "INSERT INTO chat_requests (userId, consultantId, bookingId) VALUES (?, ?, ?)",
           [userId, consultantId, bookingId]
         );
-    
+
         // Insert the first message
         await dbRun(
           "INSERT INTO chats (chatRequestId, senderId, message) VALUES (?, ?, ?)",
           [chatRequestId, userId, message]
         );
-    
+
         res.status(201).json({
           message: "Chat request sent and message sent successfully",
           chatRequestId,
@@ -729,29 +772,24 @@ app.get("/api/consultant/earnings", authenticateToken, async (req, res) => {
         res.status(500).json({ message: "Failed to send chat request" });
       }
     });
-    
-    
-// Get Chat Requests for Consultant (GET)
-// Get Chat Requests for a User (GET)
-app.get("/api/chat/requests", authenticateToken, async (req, res) => {
-  const userId = req.user.userId;
-  const db = getDb();
 
-  try {
-    // Determine the user's role (consultant or other)
-    db.get(
-      "SELECT isConsultant FROM users WHERE id = ?",
-      [userId],
-      async (err, user) => {
-        if (err) {
-          return handleDatabaseError(
-            res,
-            err,
-            "Failed to check user role"
-          );
-        }
+    // Get Chat Requests for Consultant (GET)
+    // Get Chat Requests for a User (GET)
+    app.get("/api/chat/requests", authenticateToken, async (req, res) => {
+      const userId = req.user.userId;
+      const db = getDb();
 
-        let query = `
+      try {
+        // Determine the user's role (consultant or other)
+        db.get(
+          "SELECT isConsultant FROM users WHERE id = ?",
+          [userId],
+          async (err, user) => {
+            if (err) {
+              return handleDatabaseError(res, err, "Failed to check user role");
+            }
+
+            let query = `
           SELECT cr.*, u.fullName as userName, u.profilePicture as userProfilePicture, cu.fullName as consultantName, cu.profilePicture as consultantProfilePicture, b.date as bookingDate, b.time as bookingTime
           FROM chat_requests cr
           INNER JOIN users u ON cr.userId = u.id
@@ -759,319 +797,355 @@ app.get("/api/chat/requests", authenticateToken, async (req, res) => {
           INNER JOIN bookings b ON cr.bookingId = b.id
           WHERE `;
 
-        const params = [];
+            const params = [];
 
-        if (user && user.isConsultant === 1) {
-          // Consultant: Get all requests *for* this consultant
-          query += "cr.consultantId = ?";
-          params.push(userId);
-        } else {
-          // User: Get all requests *from* this user
-          query += "cr.userId = ?";
-          params.push(userId);
-        }
+            if (user && user.isConsultant === 1) {
+              // Consultant: Get all requests *for* this consultant
+              query += "cr.consultantId = ?";
+              params.push(userId);
+            } else {
+              // User: Get all requests *from* this user
+              query += "cr.userId = ?";
+              params.push(userId);
+            }
 
-        // Retrieve all messages
-        db.all(query, params, (err, requests) => {
-          if (err) {
-            return handleDatabaseError(
-              res,
-              err,
-              "Failed to retrieve chat requests"
-            );
-          }
-          res.json(requests);
-        });
-      }
-    );
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to retrieve chat requests" });
-  }
-});
-
-app.get("/api/chat/requestStatus/:consultantId", authenticateToken, async (req, res) => {
-  const userId = req.user.userId;
-  const { consultantId } = req.params;
-  const db = getDb();
-
-  try {
-    db.get(
-      "SELECT * FROM chat_requests WHERE userId = ? AND consultantId = ?",
-      [userId, consultantId],
-      (err, request) => {
-        if (err) {
-          return handleDatabaseError(
-            res,
-            err,
-            "Failed to retrieve chat request status"
-          );
-        }
-          console.log(request)
-        if (!request) {
-          return res.json({ message: "No Chat Requests" });
-        }
-        res.json({request});
-      }
-    );
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to retrieve chat request status" });
-  }
-});
-
-// Accept/Reject Chat Request (PUT)
-app.put("/api/chat/requests/:requestId", authenticateToken, async (req, res) => {
-  const { requestId } = req.params;
-  const { status } = req.body; // 'accepted' or 'rejected'
-  const userId = req.user.userId; // Consultant id
-  const db = getDb();
-
-  if (!["accepted", "rejected"].includes(status)) {
-    return res.status(400).json({ message: "Invalid status" });
-  }
-   db.get(
-    "SELECT isConsultant FROM users WHERE id = ?",
-    [userId],
-    (err, user) => {
-      if (err) {
-          return handleDatabaseError(
-            res,
-            err,
-            "Failed to check consultant role"
-          );
-        }
-
-        if (!user || user.isConsultant !== 1) {
-          return res
-            .status(403)
-            .json({ message: "User is not a consultant" });
-        }
-        try {
-          db.run(
-            "UPDATE chat_requests SET status = ? WHERE id = ? AND consultantId = ?",
-            [status, requestId, userId],
-            function (err) {
+            // Retrieve all messages
+            db.all(query, params, (err, requests) => {
               if (err) {
                 return handleDatabaseError(
                   res,
                   err,
-                  "Failed to update chat request status"
+                  "Failed to retrieve chat requests"
                 );
               }
+              res.json(requests);
+            });
+          }
+        );
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Failed to retrieve chat requests" });
+      }
+    });
 
-              if (this.changes === 0) {
-                return res
-                  .status(404)
-                  .json({ message: "Chat request not found or unauthorized" });
+    app.get(
+      "/api/chat/requestStatus/:consultantId",
+      authenticateToken,
+      async (req, res) => {
+        const userId = req.user.userId;
+        const { consultantId } = req.params;
+        const db = getDb();
+
+        try {
+          db.get(
+            "SELECT * FROM chat_requests WHERE userId = ? AND consultantId = ?",
+            [userId, consultantId],
+            (err, request) => {
+              if (err) {
+                return handleDatabaseError(
+                  res,
+                  err,
+                  "Failed to retrieve chat request status"
+                );
               }
-
-              res.json({ message: "Chat request updated successfully" });
+              console.log(request);
+              if (!request) {
+                return res.json({ message: "No Chat Requests" });
+              }
+              res.json({ request });
             }
           );
         } catch (error) {
           console.error(error);
-          res.status(500).json({ message: "Failed to update chat request" });
+          res
+            .status(500)
+            .json({ message: "Failed to retrieve chat request status" });
         }
-   });
-});
+      }
+    );
 
-// Get Messages for a Chat (GET)
-app.get("/api/chat/:chatRequestId/messages", authenticateToken, async (req, res) => {
-  const { chatRequestId } = req.params;
-  const userId = req.user.userId;
-  const db = getDb();
+    // Accept/Reject Chat Request (PUT)
+    app.put(
+      "/api/chat/requests/:requestId",
+      authenticateToken,
+      async (req, res) => {
+        const { requestId } = req.params;
+        const { status } = req.body; // 'accepted' or 'rejected'
+        const userId = req.user.userId; // Consultant id
+        const db = getDb();
 
-  try {
-    // Validate user is part of this chat
-    db.get(
-      `SELECT 1 FROM chat_requests WHERE id = ? AND (userId = ? OR consultantId = ?)`,
-      [chatRequestId, userId, userId],
-      (err, chatRequest) => {
-        if (err) {
-          return handleDatabaseError(
-            res,
-            err,
-            "Failed to verify chat access"
-          );
+        if (!["accepted", "rejected"].includes(status)) {
+          return res.status(400).json({ message: "Invalid status" });
         }
-
-        if (!chatRequest) {
-          return res
-            .status(403)
-            .json({ message: "Unauthorized to access this chat" });
-        }
-
-        // Fetch messages
-        db.all(
-          "SELECT * FROM chats WHERE chatRequestId = ? ORDER BY timestamp",
-          [chatRequestId],
-          (err, messages) => {
+        db.get(
+          "SELECT isConsultant FROM users WHERE id = ?",
+          [userId],
+          (err, user) => {
             if (err) {
               return handleDatabaseError(
                 res,
                 err,
-                "Failed to retrieve messages"
+                "Failed to check consultant role"
               );
             }
-            res.json(messages);
-          }
-        );
-      }
-    );
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to retrieve messages" });
-  }
-});
 
-// Send Message (POST)
-app.post("/api/chat/:chatRequestId/messages", authenticateToken, async (req, res) => {
-  const { chatRequestId } = req.params;
-  const { message } = req.body;
-  const senderId = req.user.userId;
-  const db = getDb();
-
-  try {
-    // Validate user is part of this chat
-    db.get(
-      `SELECT 1 FROM chat_requests WHERE id = ? AND (userId = ? OR consultantId = ?) AND status = 'accepted'`,
-      [chatRequestId, senderId, senderId],
-      (err, chatRequest) => {
-        if (err) {
-          return handleDatabaseError(
-            res,
-            err,
-            "Failed to verify chat access"
-          );
-        }
-
-        if (!chatRequest) {
-          return res
-            .status(403)
-            .json({ message: "Unauthorized to send messages in this chat" });
-        }
-
-        // Insert message
-        db.run(
-          "INSERT INTO chats (chatRequestId, senderId, message) VALUES (?, ?, ?)",
-          [chatRequestId, senderId, message],
-          function (err) {
-            if (err) {
-              return handleDatabaseError(res, err, "Failed to send message");
+            if (!user || user.isConsultant !== 1) {
+              return res
+                .status(403)
+                .json({ message: "User is not a consultant" });
             }
+            try {
+              db.run(
+                "UPDATE chat_requests SET status = ? WHERE id = ? AND consultantId = ?",
+                [status, requestId, userId],
+                function (err) {
+                  if (err) {
+                    return handleDatabaseError(
+                      res,
+                      err,
+                      "Failed to update chat request status"
+                    );
+                  }
 
-            res.status(201).json({
-              message: "Message sent successfully",
-              messageId: this.lastID,
-            });
+                  if (this.changes === 0) {
+                    return res
+                      .status(404)
+                      .json({
+                        message: "Chat request not found or unauthorized",
+                      });
+                  }
+
+                  res.json({ message: "Chat request updated successfully" });
+                }
+              );
+            } catch (error) {
+              console.error(error);
+              res
+                .status(500)
+                .json({ message: "Failed to update chat request" });
+            }
           }
         );
       }
     );
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to send message" });
-  }
-});
+
+    // Get Messages for a Chat (GET)
+    app.get(
+      "/api/chat/:chatRequestId/messages",
+      authenticateToken,
+      async (req, res) => {
+        const { chatRequestId } = req.params;
+        const userId = req.user.userId;
+        const db = getDb();
+
+        try {
+          // Validate user is part of this chat
+          db.get(
+            `SELECT 1 FROM chat_requests WHERE id = ? AND (userId = ? OR consultantId = ?)`,
+            [chatRequestId, userId, userId],
+            (err, chatRequest) => {
+              if (err) {
+                return handleDatabaseError(
+                  res,
+                  err,
+                  "Failed to verify chat access"
+                );
+              }
+
+              if (!chatRequest) {
+                return res
+                  .status(403)
+                  .json({ message: "Unauthorized to access this chat" });
+              }
+
+              // Fetch messages
+              db.all(
+                "SELECT * FROM chats WHERE chatRequestId = ? ORDER BY timestamp",
+                [chatRequestId],
+                (err, messages) => {
+                  if (err) {
+                    return handleDatabaseError(
+                      res,
+                      err,
+                      "Failed to retrieve messages"
+                    );
+                  }
+                  res.json(messages);
+                }
+              );
+            }
+          );
+        } catch (error) {
+          console.error(error);
+          res.status(500).json({ message: "Failed to retrieve messages" });
+        }
+      }
+    );
+
+    // Send Message (POST)
+    app.post(
+      "/api/chat/:chatRequestId/messages",
+      authenticateToken,
+      async (req, res) => {
+        const { chatRequestId } = req.params;
+        const { message } = req.body;
+        const senderId = req.user.userId;
+        const db = getDb();
+
+        try {
+          // Validate user is part of this chat
+          db.get(
+            `SELECT 1 FROM chat_requests WHERE id = ? AND (userId = ? OR consultantId = ?) AND status = 'accepted'`,
+            [chatRequestId, senderId, senderId],
+            (err, chatRequest) => {
+              if (err) {
+                return handleDatabaseError(
+                  res,
+                  err,
+                  "Failed to verify chat access"
+                );
+              }
+
+              if (!chatRequest) {
+                return res
+                  .status(403)
+                  .json({
+                    message: "Unauthorized to send messages in this chat",
+                  });
+              }
+
+              // Insert message
+              db.run(
+                "INSERT INTO chats (chatRequestId, senderId, message) VALUES (?, ?, ?)",
+                [chatRequestId, senderId, message],
+                function (err) {
+                  if (err) {
+                    return handleDatabaseError(
+                      res,
+                      err,
+                      "Failed to send message"
+                    );
+                  }
+
+                  res.status(201).json({
+                    message: "Message sent successfully",
+                    messageId: this.lastID,
+                  });
+                }
+              );
+            }
+          );
+        } catch (error) {
+          console.error(error);
+          res.status(500).json({ message: "Failed to send message" });
+        }
+      }
+    );
 
     // Reviews (POST)
     app.post(
       "/api/reviews",
-  authenticateToken,
-  [
-    body("consultantId")
-    .notEmpty()
-      .withMessage("Consultant ID is required"),
-      body("rating")
-      .isInt({ min: 1, max: 5 })
-      .withMessage("Rating must be between 1 and 5"),
-      body("review").notEmpty().withMessage("Review text is required"),
-  ],
-  (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const userId = req.user.userId;
-    const { consultantId, rating, review } = req.body;
-    const db = getDb();
-    
-    //Verify user
-    db.get(
-      "SELECT * FROM bookings WHERE userId = ? AND consultantId = ?",
-      [userId, consultantId],
-      function (err, booking) {
-        if (err) {
-          return handleDatabaseError(res, err, "Failed to create review");
+      authenticateToken,
+      [
+        body("consultantId")
+          .notEmpty()
+          .withMessage("Consultant ID is required"),
+        body("rating")
+          .isInt({ min: 1, max: 5 })
+          .withMessage("Rating must be between 1 and 5"),
+        body("review").notEmpty().withMessage("Review text is required"),
+      ],
+      (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+          return res.status(400).json({ errors: errors.array() });
         }
-        if (!booking) {
-          return res.status(403).json({ message: "You can't post review without an appointment" });
-        }
-       
 
-        db.run(
-          "INSERT INTO reviews (userId, consultantId, rating, review) VALUES (?, ?, ?, ?)",
-          [userId, consultantId, rating, review],
-          function (err) {
+        const userId = req.user.userId;
+        const { consultantId, rating, review } = req.body;
+        const db = getDb();
+
+        //Verify user
+        db.get(
+          "SELECT * FROM bookings WHERE userId = ? AND consultantId = ?",
+          [userId, consultantId],
+          function (err, booking) {
             if (err) {
               return handleDatabaseError(res, err, "Failed to create review");
             }
-            
-            const reviewId = this.lastID;
-            res
-              .status(201)
-              .json({ id: reviewId, userId, consultantId, rating, review });
+            if (!booking) {
+              return res
+                .status(403)
+                .json({
+                  message: "You can't post review without an appointment",
+                });
             }
+
+            db.run(
+              "INSERT INTO reviews (userId, consultantId, rating, review) VALUES (?, ?, ?, ?)",
+              [userId, consultantId, rating, review],
+              function (err) {
+                if (err) {
+                  return handleDatabaseError(
+                    res,
+                    err,
+                    "Failed to create review"
+                  );
+                }
+
+                const reviewId = this.lastID;
+                res
+                  .status(201)
+                  .json({ id: reviewId, userId, consultantId, rating, review });
+              }
+            );
+          }
         );
       }
     );
-  }
-);
 
-// Get Consultant by ID (GET)
+    // Get Consultant by ID (GET)
 
-app.get("/api/consultants/:id", (req, res) => {
-  const consultantId = req.params.id;
-  const db = getDb();
+    app.get("/api/consultants/:id", (req, res) => {
+      const consultantId = req.params.id;
+      const db = getDb();
 
-  db.get(
-    "SELECT * FROM users WHERE id = ? AND isConsultant = 1",
-    [consultantId],
-    (err, consultant) => {
-      if (err) {
-        return handleDatabaseError(
-          res,
-          err,
-          "Failed to retrieve consultant"
-        );
-      }
-
-      if (!consultant) {
-        return res.status(404).json({ message: "Consultant not found" });
-      }
-
-        db.all(
-          "SELECT * FROM reviews WHERE consultantId = ?",
-          [consultantId],
-          (err, reviews) => {
-            if (err) {
-              return handleDatabaseError(
-                res,
-                err,
-                "Failed to retrieve reviews"
-              );
-            }
-            res.json({
-              consultant,
-              reviews
-            });
+      db.get(
+        "SELECT * FROM users WHERE id = ? AND isConsultant = 1",
+        [consultantId],
+        (err, consultant) => {
+          if (err) {
+            return handleDatabaseError(
+              res,
+              err,
+              "Failed to retrieve consultant"
+            );
           }
-        );
-    }
-  );
-});
+
+          if (!consultant) {
+            return res.status(404).json({ message: "Consultant not found" });
+          }
+
+          db.all(
+            "SELECT * FROM reviews WHERE consultantId = ?",
+            [consultantId],
+            (err, reviews) => {
+              if (err) {
+                return handleDatabaseError(
+                  res,
+                  err,
+                  "Failed to retrieve reviews"
+                );
+              }
+              res.json({
+                consultant,
+                reviews,
+              });
+            }
+          );
+        }
+      );
+    });
 
     // Bookings (GET)
     app.get("/api/bookings", authenticateToken, (req, res) => {
@@ -1091,497 +1165,501 @@ app.get("/api/consultants/:id", (req, res) => {
       );
     });
 
-// Booking acceptance route
-app.put("/api/bookings/:id/accept", authenticateToken, (req, res) => {
-  const bookingId = req.params.id;
-  const db = getDb();
-
-  db.get(
-    "SELECT consultantId, date, time FROM bookings WHERE id = ?",
-    [bookingId],
-    (err, booking) => {
-      if (err) {
-        return handleDatabaseError(
-          res,
-          err,
-          "Failed to retrieve booking details"
-        );
-      }
-
-      if (!booking) {
-        return res.status(404).json({ message: "Booking not found" });
-      }
+    // Booking acceptance route
+    app.put("/api/bookings/:id/accept", authenticateToken, (req, res) => {
+      const bookingId = req.params.id;
+      const db = getDb();
 
       db.get(
-        "SELECT COUNT(*) AS count FROM bookings WHERE consultantId = ? AND date = ? AND time = ? AND status = 'accepted'",
-        [booking.consultantId, booking.date, booking.time],
-        (err, row) => {
+        "SELECT consultantId, date, time FROM bookings WHERE id = ?",
+        [bookingId],
+        (err, booking) => {
           if (err) {
             return handleDatabaseError(
               res,
               err,
-              "Failed to check for conflicting bookings"
+              "Failed to retrieve booking details"
             );
           }
 
-          if (row.count > 0) {
-            return res
-              .status(400)
-              .json({
-                message:
-                  "This timeslot is already booked by another booking.",
-              });
+          if (!booking) {
+            return res.status(404).json({ message: "Booking not found" });
+          }
+
+          db.get(
+            "SELECT COUNT(*) AS count FROM bookings WHERE consultantId = ? AND date = ? AND time = ? AND status = 'accepted'",
+            [booking.consultantId, booking.date, booking.time],
+            (err, row) => {
+              if (err) {
+                return handleDatabaseError(
+                  res,
+                  err,
+                  "Failed to check for conflicting bookings"
+                );
+              }
+
+              if (row.count > 0) {
+                return res.status(400).json({
+                  message:
+                    "This timeslot is already booked by another booking.",
+                });
+              }
+
+              db.run(
+                "UPDATE bookings SET status = 'accepted' WHERE id = ?",
+                [bookingId],
+                function (err) {
+                  if (err) {
+                    return handleDatabaseError(
+                      res,
+                      err,
+                      "Another booking is already accepted for same timeslot, please consider cancelling that first."
+                    );
+                  }
+                  if (this.changes === 0) {
+                    return res
+                      .status(404)
+                      .json({ message: "Booking not found" });
+                  }
+                  res.json({ message: "Booking accepted successfully" });
+                }
+              );
+            }
+          );
+        }
+      );
+    });
+
+    app.put("/api/bookings/:id/cancel", authenticateToken, (req, res) => {
+      const bookingId = req.params.id;
+      const db = getDb();
+
+      db.get(
+        "SELECT consultantId, date, time FROM bookings WHERE id = ?",
+        [bookingId],
+        (err, booking) => {
+          if (err) {
+            return handleDatabaseError(
+              res,
+              err,
+              "Failed to retrieve booking details"
+            );
+          }
+
+          if (!booking) {
+            return res.status(404).json({ message: "Booking not found" });
           }
 
           db.run(
-            "UPDATE bookings SET status = 'accepted' WHERE id = ?",
+            "UPDATE bookings SET status = 'canceled' WHERE id = ?",
             [bookingId],
             function (err) {
               if (err) {
                 return handleDatabaseError(
                   res,
                   err,
-                  "Another booking is already accepted for same timeslot, please consider cancelling that first."
+                  "Failed to update booking"
                 );
               }
               if (this.changes === 0) {
-                return res
-                  .status(404)
-                  .json({ message: "Booking not found" });
+                return res.status(404).json({ message: "Booking not found" });
               }
-              res.json({ message: "Booking accepted successfully" });
+              //Refund calculation logic
+              db.get(
+                "SELECT id, amount FROM payments WHERE bookingId = ?",
+                [bookingId],
+                (err, payment) => {
+                  if (err) {
+                    return handleDatabaseError(
+                      res,
+                      err,
+                      "Failed to fetch payment details"
+                    );
+                  }
+                  if (payment) {
+                    // Calculating the refund amount and inserting the details
+                    const refundAmount = (
+                      (payment.amount - ((payment.amount * 18) / 100 + 25)) *
+                      0.95
+                    ).toFixed(2); // Deducting a 5% cancellation fee, platform fees and gst
+
+                    db.run(
+                      "INSERT INTO refunds (paymentId, refundDate, refundAmount, reason) VALUES (?, ?, ?, ?)",
+                      [
+                        payment.id,
+                        new Date().toISOString(),
+                        refundAmount,
+                        "Booking cancellation",
+                      ],
+                      function (err) {
+                        if (err) {
+                          return handleDatabaseError(
+                            res,
+                            err,
+                            "Failed to process refund"
+                          );
+                        }
+                        res.json({
+                          message: "Booking canceled successfully",
+                          refundId: this.lastID,
+                        });
+                      }
+                    );
+
+                    // Update the payment status to refunded after the refund amount calculation
+                    db.run(
+                      "UPDATE payments SET status = 'refunded' WHERE bookingId = ?",
+                      [bookingId],
+                      function (err) {
+                        if (err) {
+                          return handleDatabaseError(
+                            res,
+                            err,
+                            "Failed to update payment status"
+                          );
+                        }
+                        if (this.changes === 0) {
+                          return res
+                            .status(404)
+                            .json({ message: "Payment not found" });
+                        }
+                      }
+                    );
+                  } else {
+                    return res
+                      .status(404)
+                      .json({ message: "Payment not found" });
+                  }
+                }
+              );
             }
           );
         }
       );
-    }
-  );
-});
+    });
 
-app.put("/api/bookings/:id/cancel", authenticateToken, (req, res) => {
-    const bookingId = req.params.id;
-    const db = getDb();
-
-    db.get(
-      "SELECT consultantId, date, time FROM bookings WHERE id = ?",
-      [bookingId],
-      (err, booking) => {
-        if (err) {
-          return handleDatabaseError(
-            res,
-            err,
-            "Failed to retrieve booking details"
-          );
-        }
-
-        if (!booking) {
-          return res.status(404).json({ message: "Booking not found" });
-        }
-
-        db.run(
-          "UPDATE bookings SET status = 'canceled' WHERE id = ?",
-          [bookingId],
-          function (err) {
-            if (err) {
-              return handleDatabaseError(
-                res,
-                err,
-                "Failed to update booking"
-              );
-            }
-            if (this.changes === 0) {
-              return res.status(404).json({ message: "Booking not found" });
-            }
-           //Refund calculation logic
-            db.get(
-              "SELECT id, amount FROM payments WHERE bookingId = ?",
-              [bookingId],
-              (err, payment) => {
-                if (err) {
-                  return handleDatabaseError(
-                    res,
-                    err,
-                    "Failed to fetch payment details"
-                  );
-                }
-                if (payment) {
-                  // Calculating the refund amount and inserting the details
-                  const refundAmount = ((payment.amount - (payment.amount * 18/100 + 25)) * 0.95).toFixed(2); // Deducting a 5% cancellation fee, platform fees and gst
-
-                  db.run(
-                    "INSERT INTO refunds (paymentId, refundDate, refundAmount, reason) VALUES (?, ?, ?, ?)",
-                    [payment.id, new Date().toISOString(), refundAmount, "Booking cancellation"],
-                    function (err) {
-                      if (err) {
-                        return handleDatabaseError(
-                          res,
-                          err,
-                          "Failed to process refund"
-                        );
-                      }
-                      res.json({ message: "Booking canceled successfully", refundId: this.lastID });
-                    });
-
-                  // Update the payment status to refunded after the refund amount calculation
-                  db.run(
-                    "UPDATE payments SET status = 'refunded' WHERE bookingId = ?",
-                    [bookingId],
-                    function (err) {
-                      if (err) {
-                        return handleDatabaseError(
-                          res,
-                          err,
-                          "Failed to update payment status"
-                        );
-                      }
-                      if (this.changes === 0) {
-                        return res
-                          .status(404)
-                          .json({ message: "Payment not found" });
-                      }
-
-                    }
-                  );
-                } else{
-                  return res.status(404).json({ message: "Payment not found" });
-                }
-              }
-            );
-          }
-        );
-      }
-    );
-  });
-
-  app.put("/api/bookings/:id/reject", authenticateToken, (req, res) => {
-    const bookingId = req.params.id;
-    const db = getDb();
-  
-    db.get(
-      "SELECT consultantId, date, time, userId FROM bookings WHERE id = ?",
-      [bookingId],
-      (err, booking) => {
-        if (err) {
-          return handleDatabaseError(
-            res,
-            err,
-            "Failed to retrieve booking details"
-          );
-        }
-  
-        if (!booking) {
-          return res.status(404).json({ message: "Booking not found" });
-        }
-  
-        db.get(
-          "SELECT COUNT(*) AS count FROM bookings WHERE consultantId = ? AND date = ? AND time = ? AND status = 'accepted'",
-          [booking.consultantId, booking.date, booking.time],
-          (err, row) => {
-            if (err) {
-              return handleDatabaseError(
-                res,
-                err,
-                "Failed to check for conflicting bookings"
-              );
-            }
-  
-            if (row.count > 0) {
-              return res
-                .status(400)
-                .json({
-                  message:
-                    "This timeslot is already booked by another booking.",
-                });
-            }
-  
-            db.run(
-              "UPDATE bookings SET status = 'rejected' WHERE id = ?",
-              [bookingId],
-              function (err) {
-                if (err) {
-                  return handleDatabaseError(
-                    res,
-                    err,
-                    "Failed to update booking"
-                  );
-                }
-                if (this.changes === 0) {
-                  return res.status(404).json({ message: "Booking not found" });
-                }
-  
-                // Refund logic (similar to cancel route)
-                db.get(
-                  "SELECT id, amount FROM payments WHERE bookingId = ?",
-                  [bookingId],
-                  (err, payment) => {
-                    if (err) {
-                      return handleDatabaseError(
-                        res,
-                        err,
-                        "Failed to fetch payment details"
-                      );
-                    }
-                    if (payment) {
-                      // Calculating the refund amount and inserting the details
-                      const refundAmount = payment.amount - (payment.amount * 18/100 + 25); // Deducting gst and platform fees
-  
-                      db.run(
-                        "INSERT INTO refunds (paymentId, refundDate, refundAmount, reason) VALUES (?, ?, ?, ?)",
-                        [
-                          payment.id,
-                          new Date().toISOString(),
-                          refundAmount,
-                          "Booking rejection",
-                        ],
-                        function (err) {
-                          if (err) {
-                            return handleDatabaseError(
-                              res,
-                              err,
-                              "Failed to process refund"
-                            );
-                          }
-                          res.json({
-                            message: "Booking rejected successfully",
-                            refundId: this.lastID,
-                          });
-                        }
-                      );
-  
-                      // Update the payment status to refunded after the refund amount calculation
-                      db.run(
-                        "UPDATE payments SET status = 'refunded' WHERE bookingId = ?",
-                        [bookingId],
-                        function (err) {
-                          if (err) {
-                            return handleDatabaseError(
-                              res,
-                              err,
-                              "Failed to update payment status"
-                            );
-                          }
-                          if (this.changes === 0) {
-                            return res
-                              .status(404)
-                              .json({ message: "Payment not found" });
-                          }
-                        }
-                      );
-                    } else {
-                      return res
-                        .status(404)
-                        .json({ message: "Payment not found" });
-                    }
-                  }
-                );
-              }
-            );
-          }
-        );
-      }
-    );
-  });
-
-  app.post(
-    "/api/bookings",
-    authenticateToken,
-    [
-      body("consultantId")
-        .notEmpty()
-        .withMessage("Consultant ID is required"),
-      body("date").notEmpty().withMessage("Date is required"),
-      body("time").notEmpty().withMessage("Time is required"),
-    ],
-    async (req, res) => {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-  
-      const userId = req.user.userId;
-      const { consultantId, date, time, status = "pending" } = req.body;
+    app.put("/api/bookings/:id/reject", authenticateToken, (req, res) => {
+      const bookingId = req.params.id;
       const db = getDb();
-  
-      // Validate that the consultantId is a valid integer
-      if (isNaN(consultantId)) {
-        return res
-          .status(400)
-          .json({ message: "Invalid consultant ID. Must be a number." });
-      }
 
-      // Fetch consultant information, including availability and consultingFees
       db.get(
-        "SELECT availability, consultingFees, speciality FROM users WHERE id = ? AND isConsultant = 1",
-        [consultantId],
-        async (err, consultant) => {
+        "SELECT consultantId, date, time, userId FROM bookings WHERE id = ?",
+        [bookingId],
+        (err, booking) => {
           if (err) {
-            console.error("Error retrieving consultant information:", err);
             return handleDatabaseError(
               res,
               err,
-              "Failed to retrieve consultant information"
+              "Failed to retrieve booking details"
+            );
+          }
+
+          if (!booking) {
+            return res.status(404).json({ message: "Booking not found" });
+          }
+
+          db.run(
+            "UPDATE bookings SET status = 'rejected' WHERE id = ?",
+            [bookingId],
+            function (err) {
+              if (err) {
+                return handleDatabaseError(
+                  res,
+                  err,
+                  "Failed to update booking"
+                );
+              }
+              if (this.changes === 0) {
+                return res.status(404).json({ message: "Booking not found" });
+              }
+
+              // Refund logic (similar to cancel route)
+              db.get(
+                "SELECT id, amount FROM payments WHERE bookingId = ?",
+                [bookingId],
+                (err, payment) => {
+                  if (err) {
+                    return handleDatabaseError(
+                      res,
+                      err,
+                      "Failed to fetch payment details"
+                    );
+                  }
+                  if (payment) {
+                    // Calculating the refund amount and inserting the details
+                    const refundAmount =
+                      payment.amount - ((payment.amount * 18) / 100 + 25); // Deducting gst and platform fees
+
+                    db.run(
+                      "INSERT INTO refunds (paymentId, refundDate, refundAmount, reason) VALUES (?, ?, ?, ?)",
+                      [
+                        payment.id,
+                        new Date().toISOString(),
+                        refundAmount,
+                        "Booking rejection",
+                      ],
+                      function (err) {
+                        if (err) {
+                          return handleDatabaseError(
+                            res,
+                            err,
+                            "Failed to process refund"
+                          );
+                        }
+                        res.json({
+                          message: "Booking rejected successfully",
+                          refundId: this.lastID,
+                        });
+                      }
+                    );
+
+                    // Update the payment status to refunded after the refund amount calculation
+                    db.run(
+                      "UPDATE payments SET status = 'refunded' WHERE bookingId = ?",
+                      [bookingId],
+                      function (err) {
+                        if (err) {
+                          return handleDatabaseError(
+                            res,
+                            err,
+                            "Failed to update payment status"
+                          );
+                        }
+                        if (this.changes === 0) {
+                          return res
+                            .status(404)
+                            .json({ message: "Payment not found" });
+                        }
+                      }
+                    );
+                  } else {
+                    return res
+                      .status(404)
+                      .json({ message: "Payment not found" });
+                  }
+                }
+              );
+            }
+          );
+        }
+      );
+    });
+
+    app.post(
+      "/api/bookings",
+      authenticateToken,
+      [
+        body("consultantId")
+          .notEmpty()
+          .withMessage("Consultant ID is required"),
+        body("date").notEmpty().withMessage("Date is required"),
+        body("time").notEmpty().withMessage("Time is required"),
+      ],
+      async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+          return res.status(400).json({ errors: errors.array() });
+        }
+
+        const userId = req.user.userId;
+        const { consultantId, date, time, status = "pending" } = req.body;
+        const db = getDb();
+
+        // Validate that the consultantId is a valid integer
+        if (isNaN(consultantId)) {
+          return res
+            .status(400)
+            .json({ message: "Invalid consultant ID. Must be a number." });
+        }
+
+        // Fetch consultant information, including availability and consultingFees
+        db.get(
+          "SELECT availability, consultingFees, speciality FROM users WHERE id = ? AND isConsultant = 1",
+          [consultantId],
+          async (err, consultant) => {
+            if (err) {
+              console.error("Error retrieving consultant information:", err);
+              return handleDatabaseError(
+                res,
+                err,
+                "Failed to retrieve consultant information"
+              );
+            }
+
+            if (!consultant) {
+              return res.status(404).json({ message: "Consultant not found." });
+            }
+
+            try {
+              // Validate that the specified time is in the consultant's availability
+              let availableTimes = JSON.parse(consultant.availability);
+              const bookingDay = new Date(date).toLocaleDateString("en-US", {
+                weekday: "long",
+              });
+
+              // Check if bookingDay is a valid day of the week
+              if (!availableTimes.hasOwnProperty(bookingDay)) {
+                return res.status(400).json({
+                  message:
+                    "Consultant is not available on the specified day. Check days with consultant.",
+                });
+              }
+
+              // Validate that time is in the consultant's availability
+              const validTimes = availableTimes[bookingDay];
+
+              if (
+                !validTimes ||
+                validTimes.startTime > time ||
+                validTimes.endTime < time
+              ) {
+                return res.status(400).json({
+                  message:
+                    "Consultant is not available on the specified time. Check valid times.",
+                });
+              }
+
+              // Additional validation
+              db.get(
+                "SELECT COUNT(*) AS count FROM bookings WHERE consultantId = ? AND date = ? AND time = ? AND status = 'accepted'",
+                [consultantId, date, time],
+                (err, row) => {
+                  if (err) {
+                    console.error(
+                      "Error checking for conflicting bookings:",
+                      err
+                    );
+                    return handleDatabaseError(
+                      res,
+                      err,
+                      "Failed to check consultant availability"
+                    );
+                  }
+
+                  if (row.count > 0) {
+                    return res.status(400).json({
+                      message:
+                        "Consultant is already booked for this date and time.",
+                    });
+                  }
+
+                  db.get(
+                    "SELECT COUNT(*) AS count FROM bookings WHERE userId = ? AND date = ? AND time = ?",
+                    [userId, date, time],
+                    (err, row) => {
+                      if (err) {
+                        console.error(
+                          "Error checking for user availability",
+                          err
+                        );
+                        return handleDatabaseError(
+                          res,
+                          err,
+                          "Failed to check user availability"
+                        );
+                      }
+
+                      if (row.count > 0) {
+                        return res.status(400).json({
+                          message:
+                            "You already have a booking for this date and time.",
+                        });
+                      }
+
+                      db.run(
+                        "INSERT INTO bookings (userId, consultantId, date, time, status) VALUES (?, ?, ?, ?, ?)",
+                        [userId, consultantId, date, time, status],
+                        function (err) {
+                          if (err) {
+                            console.error("Error inserting into bookings", err);
+                            return handleDatabaseError(
+                              res,
+                              err,
+                              "Failed to create booking"
+                            );
+                          }
+                          const bookingId = this.lastID;
+
+                          const paymentDate = new Date().toISOString();
+                          const amount = (
+                            Number(consultant.consultingFees) +
+                            (Number(consultant.consultingFees) * 18) / 100 +
+                            25
+                          ).toFixed(2); // Using consultingFees from users table
+
+                          // Insert payment information into the payments table
+                          db.run(
+                            "INSERT INTO payments (bookingId, userId, amount, paymentDate, status) VALUES (?, ?, ?, ?, ?)",
+                            [bookingId, userId, amount, paymentDate, "paid"],
+                            function (err) {
+                              if (err) {
+                                console.error("Error inserting payment:", err);
+                                return handleDatabaseError(
+                                  res,
+                                  err,
+                                  "Failed to create payment information"
+                                );
+                              }
+                              const paymentId = this.lastID;
+                              res.status(201).json({
+                                id: bookingId,
+                                userId,
+                                consultantId,
+                                date,
+                                time,
+                                status,
+                                paymentId,
+                              });
+                            }
+                          );
+                        }
+                      );
+                    }
+                  );
+                }
+              );
+            } catch (parseError) {
+              console.error("Error parsing availability data:", parseError);
+              return res
+                .status(500)
+                .json({ message: "Failed to parse availability data" });
+            }
+          }
+        );
+      }
+    );
+    // API to Fetch Consultant Availability
+    app.get("/api/consultant/:consultantId/availability", (req, res) => {
+      const consultantId = req.params.consultantId;
+      const db = getDb();
+
+      db.get(
+        "SELECT availability FROM users WHERE id = ? AND isConsultant = 1",
+        [consultantId],
+        (err, consultant) => {
+          if (err) {
+            return handleDatabaseError(
+              res,
+              err,
+              "Failed to retrieve consultant availability"
             );
           }
 
           if (!consultant) {
-            return res.status(404).json({ message: "Consultant not found." });
+            return res.status(404).json({ message: "Consultant not found" });
           }
 
           try {
-            // Validate that the specified time is in the consultant's availability
-            let availableTimes = JSON.parse(consultant.availability);
-            const bookingDay = new Date(date).toLocaleDateString("en-US", {
-              weekday: "long",
-            });
-
-            // Check if bookingDay is a valid day of the week
-            if (!availableTimes.hasOwnProperty(bookingDay)) {
-              return res.status(400).json({
-                message:
-                  "Consultant is not available on the specified day. Check days with consultant.",
-              });
-            }
-
-            // Validate that time is in the consultant's availability
-            const validTimes = availableTimes[bookingDay];
-
-            if (!validTimes || (validTimes.startTime > time || validTimes.endTime < time)) {
-              return res.status(400).json({
-                message:
-                  "Consultant is not available on the specified time. Check valid times.",
-              });
-            }
-
-            // Additional validation
-            db.get(
-              "SELECT COUNT(*) AS count FROM bookings WHERE consultantId = ? AND date = ? AND time = ?",
-              [consultantId, date, time],
-              (err, row) => {
-                if (err) {
-                  console.error("Error checking for conflicting bookings:", err);
-                  return handleDatabaseError(
-                    res,
-                    err,
-                    "Failed to check consultant availability"
-                  );
-                }
-
-                if (row.count > 0) {
-                  return res.status(400).json({
-                    message:
-                      "Consultant is already booked for this date and time.",
-                  });
-                }
-
-                db.get(
-                  "SELECT COUNT(*) AS count FROM bookings WHERE userId = ? AND date = ? AND time = ?",
-                  [userId, date, time],
-                  (err, row) => {
-                    if (err) {
-                      console.error("Error checking for user availability", err);
-                      return handleDatabaseError(
-                        res,
-                        err,
-                        "Failed to check user availability"
-                      );
-                    }
-
-                    if (row.count > 0) {
-                      return res.status(400).json({
-                        message: "You already have a booking for this date and time.",
-                      });
-                    }
-
-                    db.run(
-                      "INSERT INTO bookings (userId, consultantId, date, time, status) VALUES (?, ?, ?, ?, ?)",
-                      [userId, consultantId, date, time, status],
-                      function (err) {
-                        if (err) {
-                          console.error("Error inserting into bookings", err);
-                          return handleDatabaseError(
-                            res,
-                            err,
-                            "Failed to create booking"
-                          );
-                        }
-                        const bookingId = this.lastID;
-
-                        const paymentDate = new Date().toISOString();
-                        const amount = (Number(consultant.consultingFees) + Number(consultant.consultingFees) * 18/100 + 25).toFixed(2); // Using consultingFees from users table
-
-                        // Insert payment information into the payments table
-                        db.run(
-                          "INSERT INTO payments (bookingId, userId, amount, paymentDate, status) VALUES (?, ?, ?, ?, ?)",
-                          [bookingId, userId, amount, paymentDate, "paid"],
-                          function (err) {
-                            if (err) {
-                              console.error("Error inserting payment:", err);
-                              return handleDatabaseError(
-                                res,
-                                err,
-                                "Failed to create payment information"
-                              );
-                            }
-                            const paymentId = this.lastID;
-                            res.status(201).json({
-                              id: bookingId,
-                              userId,
-                              consultantId,
-                              date,
-                              time,
-                              status,
-                              paymentId,
-                            });
-                          }
-                        );
-                      }
-                    );
-                  }
-                );
-              }
-            );
-          } catch (parseError) {
-            console.error("Error parsing availability data:", parseError);
+            const availability = JSON.parse(consultant.availability);
+            res.json(availability);
+          } catch (error) {
             return res
               .status(500)
               .json({ message: "Failed to parse availability data" });
           }
         }
       );
-    }
-  );
-// API to Fetch Consultant Availability
-app.get("/api/consultant/:consultantId/availability", (req, res) => {
-  const consultantId = req.params.consultantId;
-  const db = getDb();
-
-  db.get(
-    "SELECT availability FROM users WHERE id = ? AND isConsultant = 1",
-    [consultantId],
-    (err, consultant) => {
-      if (err) {
-        return handleDatabaseError(
-          res,
-          err,
-          "Failed to retrieve consultant availability"
-        );
-      }
-
-      if (!consultant) {
-        return res.status(404).json({ message: "Consultant not found" });
-      }
-
-      try {
-        const availability = JSON.parse(consultant.availability);
-        res.json(availability);
-      } catch (error) {
-        return res
-          .status(500)
-          .json({ message: "Failed to parse availability data" });
-      }
-    }
-  );
-});
+    });
 
     // Health Records (GET and POST)
     app.get("/api/healthrecords", authenticateToken, (req, res) => {
@@ -1589,19 +1667,22 @@ app.get("/api/consultant/:consultantId/availability", (req, res) => {
       const userId = req.user.userId;
       const { userId1 } = req.query; // FIXED: Use query instead of body
       const db = getDb();
-  
+
       db.all(
-          "SELECT * FROM healthrecords WHERE userId = ?",
-          [userId1 ? userId1 : userId],
-          (err, healthrecords) => {
-              if (err) {
-                  return handleDatabaseError(res, err, "Failed to retrieve health records");
-              }
-              res.json(healthrecords);
+        "SELECT * FROM healthrecords WHERE userId = ?",
+        [userId1 ? userId1 : userId],
+        (err, healthrecords) => {
+          if (err) {
+            return handleDatabaseError(
+              res,
+              err,
+              "Failed to retrieve health records"
+            );
           }
+          res.json(healthrecords);
+        }
       );
-  });
-  
+    });
 
     app.post(
       "/api/healthrecords",
@@ -1640,15 +1721,13 @@ app.get("/api/consultant/:consultantId/availability", (req, res) => {
             }
 
             const recordId = this.lastID;
-            res
-              .status(201)
-              .json({
-                id: recordId,
-                userId,
-                medicalHistory,
-                ongoingTreatments,
-                prescriptions,
-              });
+            res.status(201).json({
+              id: recordId,
+              userId,
+              medicalHistory,
+              ongoingTreatments,
+              prescriptions,
+            });
           }
         );
       }
@@ -1701,15 +1780,13 @@ app.get("/api/consultant/:consultantId/availability", (req, res) => {
             }
 
             const messageId = this.lastID;
-            res
-              .status(201)
-              .json({
-                id: messageId,
-                userId,
-                consultantId,
-                message,
-                timestamp,
-              });
+            res.status(201).json({
+              id: messageId,
+              userId,
+              consultantId,
+              message,
+              timestamp,
+            });
           }
         );
       }
@@ -1719,22 +1796,26 @@ app.get("/api/consultant/:consultantId/availability", (req, res) => {
     app.get("/api/payments", authenticateToken, (req, res) => {
       const userId = req.user.userId;
       const db = getDb();
-    
+
       // Check if the user is an admin
       db.get("SELECT role FROM users WHERE id = ?", [userId], (err, user) => {
         if (err) {
           return handleDatabaseError(res, err, "Failed to retrieve user role");
         }
-    
+
         if (!user) {
           return res.status(404).json({ message: "User not found" });
         }
-    
+
         if (user.role === "admin") {
           // If the user is an admin, return all payments
           db.all("SELECT * FROM payments", (err, payments) => {
             if (err) {
-              return handleDatabaseError(res, err, "Failed to retrieve all payments");
+              return handleDatabaseError(
+                res,
+                err,
+                "Failed to retrieve all payments"
+              );
             }
             res.json(payments);
           });
@@ -1745,7 +1826,11 @@ app.get("/api/consultant/:consultantId/availability", (req, res) => {
             [userId],
             (err, payments) => {
               if (err) {
-                return handleDatabaseError(res, err, "Failed to retrieve payments");
+                return handleDatabaseError(
+                  res,
+                  err,
+                  "Failed to retrieve payments"
+                );
               }
               res.json(payments);
             }
@@ -1842,17 +1927,21 @@ app.get("/api/consultant/:consultantId/availability", (req, res) => {
     app.get("/api/admin/consultants", authenticateAdmin, (req, res) => {
       const db = getDb();
 
-      db.all("SELECT * FROM users WHERE isConsultant = 1", [], (err, consultants) => {
-        if (err) {
-          return handleDatabaseError(
-            res,
-            err,
-            "Failed to retrieve consultants"
-          );
-        }
+      db.all(
+        "SELECT * FROM users WHERE isConsultant = 1",
+        [],
+        (err, consultants) => {
+          if (err) {
+            return handleDatabaseError(
+              res,
+              err,
+              "Failed to retrieve consultants"
+            );
+          }
 
-        res.json(consultants);
-      });
+          res.json(consultants);
+        }
+      );
     });
 
     // Admin - Get All Bookings
@@ -1964,7 +2053,11 @@ app.get("/api/consultant/:consultantId/availability", (req, res) => {
         [bookingId],
         (err, userDetails) => {
           if (err) {
-            return handleDatabaseError(res, err, "Failed to retrieve user details");
+            return handleDatabaseError(
+              res,
+              err,
+              "Failed to retrieve user details"
+            );
           }
 
           if (!userDetails) {
@@ -1979,7 +2072,11 @@ app.get("/api/consultant/:consultantId/availability", (req, res) => {
             [userDetails.id],
             (err, healthRecords) => {
               if (err) {
-                return handleDatabaseError(res, err, "Failed to retrieve health records");
+                return handleDatabaseError(
+                  res,
+                  err,
+                  "Failed to retrieve health records"
+                );
               }
 
               // Return user details along with their health records
@@ -1992,8 +2089,6 @@ app.get("/api/consultant/:consultantId/availability", (req, res) => {
         }
       );
     });
-
-
 
     // Consultant approval route for admin
     app.put(
@@ -2046,11 +2141,20 @@ app.get("/api/consultant/:consultantId/availability", (req, res) => {
             }
 
             if (!consultant || consultant.isConsultant !== 1) {
-              return res.status(404).json({ message: "Consultant not found or is not a consultant" });
+              return res
+                .status(404)
+                .json({
+                  message: "Consultant not found or is not a consultant",
+                });
             }
 
             if (!consultant || consultant.isApproved !== 1) {
-              return res.status(404).json({ message: "We are currently reviewing your profile as part of our standard security procedures.\n\n Rest assured, this is simply a routine check to ensure the integrity of our platform and maintain the trust of all our valued customers.\n\n Your account will be activated shortly after the review process is complete.\n\n Thank you for your patience and understanding." });
+              return res
+                .status(404)
+                .json({
+                  message:
+                    "We are currently reviewing your profile as part of our standard security procedures.\n\n Rest assured, this is simply a routine check to ensure the integrity of our platform and maintain the trust of all our valued customers.\n\n Your account will be activated shortly after the review process is complete.\n\n Thank you for your patience and understanding.",
+                });
             }
 
             //Check If consultant or Admin is requesting bookings
@@ -2092,12 +2196,15 @@ app.get("/api/consultant/:consultantId/availability", (req, res) => {
       }
     );
 
-app.use("/uploads", express.static(path.join(__dirname, "uploads"), {
-  setHeaders: (res, path, stat) => {
-      res.set("Access-Control-Allow-Origin", "*"); // Allow any origin
-      res.set("Cross-Origin-Resource-Policy", "cross-origin"); // Allow cross-origin resource access
-  }
-  }));
+    app.use(
+      "/uploads",
+      express.static(path.join(__dirname, "uploads"), {
+        setHeaders: (res, path, stat) => {
+          res.set("Access-Control-Allow-Origin", "*"); // Allow any origin
+          res.set("Cross-Origin-Resource-Policy", "cross-origin"); // Allow cross-origin resource access
+        },
+      })
+    );
 
     // Start the server
     app.listen(port, () => {

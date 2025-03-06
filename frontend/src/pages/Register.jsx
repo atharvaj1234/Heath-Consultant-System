@@ -100,7 +100,7 @@ const Register = () => {
     }
 
     if (formData.password != formData.confirmPassword) {
-      return "Password must be at least 6 characters long";
+      return "Passwords won't match";
     }
 
     if (role === "consultant") {

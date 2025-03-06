@@ -42,7 +42,7 @@ const MessagingPage = () => {
         const data = await getChatRequests();
         setChatRequests(data);
         console.log(data);
-        const ic = data.consultantId == userId;
+        const ic = data[0].consultantId?.toString() == userId?.toString();
         setIsConsutant(ic);
       } catch (error) {
         setError("Failed to fetch chat requests.");
@@ -70,7 +70,7 @@ const MessagingPage = () => {
 
   useEffect(() => {
     const isPending = (reqs) => reqs.filter((req) => req.id === selectedChatRequestId)
-    const p =isPending(chatRequests)[0]?.status === "pending";
+    const p =isPending(chatRequests)[0]?.status == "pending";
     setIspending(p);
     console.log(p)
   }, [chatRequests, selectedChatRequestId]);
@@ -165,7 +165,7 @@ const MessagingPage = () => {
                     {isConsultant ? (
                       <>
                         <img
-                          src={`http://localhost:5555/${req.user.userProfilePicture}`}
+                          src={`http://localhost:5555/${req.userProfilePicture}`}
                           alt={`${req.userName}'s Profile`}
                           className="w-10 h-10 rounded-full object-cover shadow-inner"
                           onError={(e) => {
@@ -239,11 +239,11 @@ const MessagingPage = () => {
           {selectedChatRequestId ? (
             <>
               {/* Message Area */}
-              <div className="flex-grow p-4 space-y-2 overflow-y-auto">
+              <div className="flex-grow p-4 space-y-2 overflow-y-auto max-h-[80vh]">
                 {messages.map((msg) => (
                   <div
                     key={msg.id}
-                    className={`rounded-2xl p-3 text-sm break-words max-w-[80%] shadow-sm ${
+                    className={`rounded-2xl p-3 text-sm break-words max-w-[60%] shadow-sm ${
                       msg.senderId === parseInt(userId)
                         ? "bg-blue-200 ml-auto text-gray-800"
                         : "bg-white mr-auto text-gray-700"

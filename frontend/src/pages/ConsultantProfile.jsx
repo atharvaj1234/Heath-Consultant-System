@@ -48,7 +48,7 @@ const ConsultantProfile = () => {
 
                     }
                 });
-                setAvailability({...availability});
+                // setAvailability({...availability});
 
             } catch (err) {
                 setError('Failed to retrieve consultant profile. Please try again.');

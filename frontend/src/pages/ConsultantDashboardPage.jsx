@@ -351,7 +351,7 @@ const ConsultantDashboardPage = () => {
                   {booking.status === "accepted" && (
                     <button
                       className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg shadow-md transition"
-                      onClick={() => handleCancelBooking(booking.id, booking.date)}
+                      onClick={() => handleRejectBooking(booking.id)}
                     >
                       <X className="h-5 w-5" />
                       Cancel

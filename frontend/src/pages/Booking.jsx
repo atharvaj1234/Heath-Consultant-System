@@ -136,15 +136,16 @@ const Booking = () => {
       fetchConsultantAvailability();
   }, [id, selectedDate]);
 
-  const isSlotBooked = (appointments, selectedDate, selectedTime) => appointments.some(app => app.date === selectedDate && app.time === selectedTime);
+  const isSlotBooked = (appointments, selectedDate, selectedTime) => appointments.some(app => app.date === selectedDate && app.time === selectedTime && (app.status == "accepted" || app.status == "pending"));
 
     const handleSubmit = async (e) => {
+        console.log(bookings)
         e.preventDefault();
         setLoading(true);
         setError('');
         setBookingSuccess(false);
         if(isSlotBooked(bookings, selectedDate.format('YYYY-MM-DD'), time) || selectedDate === new Date().toISOString().split('T')[0]){
-            alert("Slot Already Booked Select another")
+            alert("Time slot already booked select another")
             setLoading(false);
             return
         }
@@ -211,7 +212,11 @@ const Booking = () => {
       }
   
       console.log("Generated Time Slots:", timeSlots);
-      return timeSlots;
+
+      const newTimeSlots = timeSlots.filter(
+        (slot) => !bookings.some(app => app.time === slot)
+    );
+      return newTimeSlots;
   };
   
 
@@ -227,7 +232,7 @@ const Booking = () => {
         <PageContainer>
             <GlassCard>
                 <Typography variant="h4" gutterBottom align="center" sx={{ fontWeight: 'bold' }}>
-                    Book Appointment with {consultant?.consultant?.speciality}
+                    Book Appointment with Dr. {consultant?.consultant?.fullName}
                 </Typography>
 
                 <Grid container spacing={3}>
