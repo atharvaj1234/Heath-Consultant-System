@@ -9,6 +9,7 @@ const ConsultantSearch = () => {
     const [consultants, setConsultants] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const token = localStorage.getItem('token')
 
     useEffect(() => {
         const fetchConsultants = async () => {
@@ -133,7 +134,7 @@ const ConsultantSearch = () => {
                                 </p>
                                 <div className="flex justify-between items-center">
                                     <Link
-                                        to={`/consultantdetails/${consultant.id}`}
+                                        to={token ? `/consultantdetails/${consultant.id}` : '/login'}
                                         className="inline-flex items-center justify-center bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-2 px-4 rounded-full focus:outline-none focus:shadow-outline transition-colors duration-300"
                                     >
                                         View Profile

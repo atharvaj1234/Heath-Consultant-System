@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { getConsultantById, createReview } from '../utils/api';
 import { Star } from 'lucide-react';
 
 const Review = () => {
   const { id } = useParams();
   const [consultant, setConsultant] = useState(null);
-  const [rating, setRating] = useState(0);
+  const [rating, setRating] = useState(4);
   const [reviewText, setReviewText] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const navigate = useNavigate();
+  
 
   useEffect(() => {
     const fetchConsultant = async () => {
@@ -53,6 +55,9 @@ const Review = () => {
       setSuccessMessage('Review submitted successfully!');
       setRating(0);
       setReviewText('');
+      setTimeout(() => {
+        navigate(`/consultantdetails/${id}`);
+    }, 2000);
     } catch (err) {
       setError('Failed to submit review. Please try again.');
       console.error('Review submission failed:', err);
@@ -125,6 +130,7 @@ const Review = () => {
           </div>
 
           {/* Submit Button */}
+          <div className='flex flex-row justify-between items-baseline'>
           <button
             type="submit"
             className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-colors duration-300"
@@ -132,6 +138,10 @@ const Review = () => {
           >
             Submit Review
           </button>
+          <div className="text-gray-500 text-sm mb-4 cursor-pointer" onClick={() => window.history.back()}>
+          Go back
+        </div> 
+        </div>
         </form>
 
         {successMessage && (

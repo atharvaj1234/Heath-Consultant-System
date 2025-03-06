@@ -1,411 +1,377 @@
-const sqlite3 = require("sqlite3").verbose();
+const mysql = require('mysql2/promise');
+const dotenv = require('dotenv');
+dotenv.config();
 
-const dbName = "healthconsultant.db";
-let db;
+const dbName = 'healthconsultant'; // Your database name
 
-function connectToDatabase() {
-  return new Promise((resolve, reject) => {
-    db = new sqlite3.Database(dbName, (err) => {
-      if (err) {
-        console.error("Database connection error:", err.message);
-        reject(err);
-      } else {
-        console.log("Connected to the database.");
-        resolve(db);
-      }
-    });
-  });
+let pool; // Use a connection pool for efficiency
+
+async function connectToDatabase() {
+    try {
+        pool = mysql.createPool({
+            host: process.env.DB_HOST || 'localhost',  // Replace with your MySQL host
+            user: process.env.DB_USER || 'root',       // Replace with your MySQL user
+            password: process.env.DB_PASSWORD || '',   // Replace with your MySQL password,
+            waitForConnections: true,
+            connectionLimit: 10,
+            queueLimit: 0
+        });
+
+        // Test the connection and create the database if it doesn't exist
+        const connection = await pool.getConnection();
+        try {
+            await connection.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\`;`);
+            console.log(`Database "${dbName}" created (if it didn't exist).`);
+        } finally {
+            connection.release();
+        }
+
+        // Now, switch the connection pool to use the created database
+        pool = mysql.createPool({
+            host: process.env.DB_HOST || 'localhost',  // Replace with your MySQL host
+            user: process.env.DB_USER || 'root',       // Replace with your MySQL user
+            password: process.env.DB_PASSWORD || '',   // Replace with your MySQL password
+            database: process.env.DB_NAME || dbName,
+            waitForConnections: true,
+            connectionLimit: 10,
+            queueLimit: 0
+        });
+
+        const newConnection = await pool.getConnection();
+        console.log('Connected to the database.');
+        newConnection.release(); // Release the connection back to the pool
+        return pool;
+
+    } catch (error) {
+        console.error('Database connection error:', error.message);
+        throw error;
+    }
 }
 
 async function initializeDatabase() {
-  try {
-    await connectToDatabase();
-    await createTables();
-    await seedConsultants();
-    console.log("Database initialized successfully.");
-  } catch (error) {
-    console.error("Database initialization failed:", error.message);
-    throw error;
-  }
+    try {
+        await connectToDatabase();
+        await createTables();
+        await seedConsultants();
+        console.log("Database initialized successfully.");
+    } catch (error) {
+        console.error("Database initialization failed:", error.message);
+        throw error;
+    }
 }
 
+
 async function createTables() {
-  return new Promise((resolve, reject) => {
-    db.serialize(() => {
-      db.run(
-        `
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      fullName TEXT NOT NULL,
-      email TEXT NOT NULL UNIQUE,
-      password TEXT NOT NULL,
-      role TEXT,
-      phone TEXT NOT NULL,
-      profilePicture TEXT DEFAULT NULL, -- Path to the profile picture (optional)
-      
-      -- User-specific fields
-      bloodGroup TEXT DEFAULT NULL,
-      medicalHistory TEXT DEFAULT NULL,
-      currentPrescriptions TEXT DEFAULT NULL,
+  try {
+      const connection = await pool.getConnection();
 
-      -- Consultant-specific fields
-      isConsultant INTEGER DEFAULT 0, -- 1 if consultant, 0 otherwise
-      bio TEXT DEFAULT NULL,
-      qualification TEXT DEFAULT NULL,
-      areasOfExpertise TEXT DEFAULT NULL,
-      speciality TEXT DEFAULT NULL,
-      availability TEXT DEFAULT NULL,  -- Store as JSON string
-      bankAccount TEXT DEFAULT NULL,
-      consultingFees TEXT DEFAULT NULL,
-      certificates TEXT DEFAULT NULL,
-      isApproved INTEGER DEFAULT 0 -- 1 if approved, 0 otherwise
-    );
-      `,
-        (err) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-        }
-      );
+      // Users Table
+      await connection.query(`
+          CREATE TABLE IF NOT EXISTS users (
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              fullName VARCHAR(255) NOT NULL,
+              email VARCHAR(255) NOT NULL UNIQUE,
+              password VARCHAR(255) NOT NULL,
+              role VARCHAR(50),
+              phone VARCHAR(20) NOT NULL,
+              profilePicture VARCHAR(255) DEFAULT NULL,
+              bloodGroup VARCHAR(10) DEFAULT NULL,
+              medicalHistory TEXT DEFAULT NULL,
+              currentPrescriptions TEXT DEFAULT NULL,
+              isConsultant TINYINT DEFAULT 0,
+              bio TEXT DEFAULT NULL,
+              qualification VARCHAR(255) DEFAULT NULL,
+              areasOfExpertise TEXT DEFAULT NULL,
+              speciality VARCHAR(255) DEFAULT NULL,
+              availability TEXT DEFAULT NULL,
+              bankAccount VARCHAR(255) DEFAULT NULL,
+              consultingFees DECIMAL(10, 2) DEFAULT NULL,
+              certificates TEXT DEFAULT NULL,
+              isApproved TINYINT DEFAULT 0
+          );
+      `);
 
-      db.run(
-        `
-        CREATE TABLE IF NOT EXISTS consultants (
-          id INTEGER PRIMARY KEY,
-          userId INTEGER,
-          specialty TEXT,
-          qualifications TEXT,
-          availability TEXT,
-          imageUrl TEXT,
-          FOREIGN KEY (userId) REFERENCES users(id)
-        )
-      `,
-        (err) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-        }
-      );
+      // Consultants Table (Consider removing - fields are now in users)
+      await connection.query(`
+          CREATE TABLE IF NOT EXISTS consultants (
+              id INT PRIMARY KEY AUTO_INCREMENT,
+              userId INT,
+              specialty VARCHAR(255),
+              qualifications TEXT,
+              availability TEXT,
+              imageUrl VARCHAR(255),
+              FOREIGN KEY (userId) REFERENCES users(id)
+          );
+      `);
 
-      db.run(
-        `
-        CREATE TABLE IF NOT EXISTS bookings (
-          id INTEGER PRIMARY KEY,
-          userId INTEGER,
-          consultantId INTEGER,
-          date TEXT,
-          time TEXT,
-          status TEXT,
-          FOREIGN KEY (userId) REFERENCES users(id),
-          FOREIGN KEY (consultantId) REFERENCES consultants(id)
-        )
-      `,
-        (err) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-        }
-      );
+      // Bookings Table
+      await connection.query(`
+          CREATE TABLE IF NOT EXISTS bookings (
+              id INT PRIMARY KEY AUTO_INCREMENT,
+              userId INT,
+              consultantId INT,
+              date DATE,
+              time TIME,
+              status VARCHAR(50),
+              FOREIGN KEY (userId) REFERENCES users(id),
+              FOREIGN KEY (consultantId) REFERENCES users(id)
+          );
+      `);
 
-      db.run(
-        `
-        CREATE TABLE IF NOT EXISTS healthrecords (
-          id INTEGER PRIMARY KEY,
-          userId INTEGER,
-          medicalHistory TEXT,
-          ongoingTreatments TEXT,
-          prescriptions TEXT,
-          FOREIGN KEY (userId) REFERENCES users(id)
-        )
-      `,
-        (err) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-        }
-      );
+      // Health Records Table
+      await connection.query(`
+          CREATE TABLE IF NOT EXISTS healthrecords (
+              id INT PRIMARY KEY AUTO_INCREMENT,
+              userId INT,
+              medicalHistory TEXT,
+              ongoingTreatments TEXT,
+              prescriptions TEXT,
+              FOREIGN KEY (userId) REFERENCES users(id)
+          );
+      `);
 
-      db.run(
-        `
-        CREATE TABLE IF NOT EXISTS messages (
-          id INTEGER PRIMARY KEY,
-          userId INTEGER,
-          consultantId INTEGER,
-          message TEXT,
-          timestamp TEXT,
-          FOREIGN KEY (userId) REFERENCES users(id),
-          FOREIGN KEY (consultantId) REFERENCES consultants(id)
-        )
-      `,
-        (err) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-        }
-      );
+      // Messages Table
+      await connection.query(`
+          CREATE TABLE IF NOT EXISTS messages (
+              id INT PRIMARY KEY AUTO_INCREMENT,
+              userId INT,
+              consultantId INT,
+              message TEXT,
+              timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (userId) REFERENCES users(id),
+              FOREIGN KEY (consultantId) REFERENCES users(id)
+          );
+      `);
 
-      db.run(`
-        CREATE TABLE IF NOT EXISTS chat_requests (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          userId INTEGER NOT NULL,
-          consultantId INTEGER NOT NULL,
-          bookingId INTEGER NOT NULL,  -- Add booking ID
-          status TEXT DEFAULT 'pending', -- 'pending', 'accepted', 'rejected'
-          FOREIGN KEY (userId) REFERENCES users(id),
-          FOREIGN KEY (consultantId) REFERENCES users(id),
-          FOREIGN KEY (bookingId) REFERENCES bookings(id),
-          UNIQUE (userId, consultantId, bookingId) -- Prevent duplicate requests
-        );
-      `, (err) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-      });
-      
-      db.run(`
-        CREATE TABLE IF NOT EXISTS chats (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          chatRequestId INTEGER NOT NULL,  -- Link to the request
-          senderId INTEGER NOT NULL,
-          message TEXT NOT NULL,
-          timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (chatRequestId) REFERENCES chat_requests(id),
-          FOREIGN KEY (senderId) REFERENCES users(id)
-        );
-      `, (err) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-      });
+      // Chat Requests Table
+      await connection.query(`
+          CREATE TABLE IF NOT EXISTS chat_requests (
+              id INT PRIMARY KEY AUTO_INCREMENT,
+              userId INT NOT NULL,
+              consultantId INT NOT NULL,
+              bookingId INT NOT NULL,
+              status VARCHAR(20) DEFAULT 'pending',
+              FOREIGN KEY (userId) REFERENCES users(id),
+              FOREIGN KEY (consultantId) REFERENCES users(id),
+              FOREIGN KEY (bookingId) REFERENCES bookings(id),
+              UNIQUE (userId, consultantId, bookingId)
+          );
+      `);
 
-db.run(
-  `
-  CREATE TABLE IF NOT EXISTS reviews (
-    id INTEGER PRIMARY KEY,
-    userId INTEGER,
-    consultantId INTEGER,
-    rating INTEGER,
-    review TEXT,
-    bookingId INTEGER, 
-    FOREIGN KEY (userId) REFERENCES users(id),
-    FOREIGN KEY (consultantId) REFERENCES users(id)
-    FOREIGN KEY (bookingId) REFERENCES bookings(id)
-  )
-`,
-  (err) => {
-    if (err) {
-      reject(err);
-      return;
-    }
+      // Chats Table
+      await connection.query(`
+          CREATE TABLE IF NOT EXISTS chats (
+              id INT PRIMARY KEY AUTO_INCREMENT,
+              chatRequestId INT NOT NULL,
+              senderId INT NOT NULL,
+              message TEXT NOT NULL,
+              timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (chatRequestId) REFERENCES chat_requests(id),
+              FOREIGN KEY (senderId) REFERENCES users(id)
+          );
+      `);
+
+      // Reviews Table
+      await connection.query(`
+          CREATE TABLE IF NOT EXISTS reviews (
+              id INT PRIMARY KEY AUTO_INCREMENT,
+              userId INT,
+              consultantId INT,
+              rating INT,
+              review TEXT,
+              bookingId INT,
+              FOREIGN KEY (userId) REFERENCES users(id),
+              FOREIGN KEY (consultantId) REFERENCES users(id),
+              FOREIGN KEY (bookingId) REFERENCES bookings(id)
+          );
+      `);
+
+      // Contacts Table
+      await connection.query(`
+          CREATE TABLE IF NOT EXISTS contacts (
+              id INT PRIMARY KEY AUTO_INCREMENT,
+              name VARCHAR(255),
+              email VARCHAR(255),
+              subject VARCHAR(255),
+              message TEXT
+          );
+      `);
+
+      // Payments Table
+      await connection.query(`
+          CREATE TABLE IF NOT EXISTS payments (
+              id INT PRIMARY KEY AUTO_INCREMENT,
+              bookingId INT NOT NULL,
+              userId INT NOT NULL,
+              amount DECIMAL(10, 2) NOT NULL,
+              paymentDate DATETIME NOT NULL,
+              paymentMethod VARCHAR(255),
+              status VARCHAR(50) NOT NULL,
+              FOREIGN KEY (bookingId) REFERENCES bookings(id),
+              FOREIGN KEY (userId) REFERENCES users(id)
+          );
+      `);
+
+      // Refunds Table
+      await connection.query(`
+          CREATE TABLE IF NOT EXISTS refunds (
+              id INT PRIMARY KEY AUTO_INCREMENT,
+              paymentId INT NOT NULL,
+              refundDate DATETIME NOT NULL,
+              refundAmount DECIMAL(10, 2) NOT NULL,
+              reason TEXT,
+              FOREIGN KEY (paymentId) REFERENCES payments(id)
+          );
+      `);
+
+      connection.release();
+      console.log('Tables created successfully.');
+
+  } catch (error) {
+      console.error('Error creating tables:', error.message);
+      throw error;
   }
-);
-      db.run(
-        `
-        CREATE TABLE IF NOT EXISTS contacts (
-          id INTEGER PRIMARY KEY,
-          name TEXT,
-          email TEXT,
-          subject TEXT,
-          message TEXT
-        )
-      `,
-        (err) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-        }
-      );
-      db.run(`
-
-        CREATE TABLE IF NOT EXISTS payments (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          bookingId INTEGER NOT NULL,
-          userId INTEGER NOT NULL,
-          amount REAL NOT NULL,
-          paymentDate TEXT NOT NULL,
-          paymentMethod TEXT,
-          status TEXT NOT NULL, -- e.g., 'paid', 'refunded', 'pending'
-          FOREIGN KEY (bookingId) REFERENCES bookings(id),
-          FOREIGN KEY (userId) REFERENCES users(id)
-        );
-              `, (err) => {
-                if (err) {
-                  reject(err);
-                  return;
-                }
-              });
-      db.run(
-        `
-        CREATE TABLE IF NOT EXISTS refunds (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          paymentId INTEGER NOT NULL,
-          refundDate TEXT NOT NULL,
-          refundAmount REAL NOT NULL,
-          reason TEXT,
-          FOREIGN KEY (paymentId) REFERENCES payments(id)
-        );
-      `,
-        (err) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-        }
-      );
-
-      resolve();
-    });
-  });
 }
 
 async function seedConsultants() {
-  // Check if users table is empty
-  return new Promise((resolve, reject) => {
-    db.get(
-      "SELECT COUNT(*) AS count FROM users WHERE isConsultant = 1",
-      (err, row) => {
-        if (err) {
-          reject(err);
-          return;
-        }
+    try {
+        const connection = await pool.getConnection();
 
-        const count = row.count;
+        // Check if users table is empty
+        const [rows] = await connection.query("SELECT COUNT(*) AS count FROM users WHERE isConsultant = 1");
+        const count = rows[0].count;
 
         if (count === 0) {
-          // If consultants table is empty, seed with dummy data
-          const stmt = db.prepare(`
-            INSERT INTO users (fullName, email, password, role, phone, isConsultant, bio, qualification, areasOfExpertise, speciality, availability, bankAccount, isApproved, profilePicture)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `);
+            const consultants = [
+                {
+                    fullName: "Dr. Jane Doe",
+                    email: "jane.doe@example.com",
+                    password: "$2b$10$O3jfFgJVuZ028Z2u.GCrk.SSpvbdzVUFc4sjI78Jzgsd.3qhyOlo.",
+                    role: "consultant",
+                    phone: "555-123-4567",
+                    bio: "Experienced cardiologist",
+                    qualification: "MD, Cardiology",
+                    areasOfExpertise: "Heart failure, Hypertension",
+                    speciality: "Cardiology",
+                    availability: '{"Monday": "9:00-17:00", "Tuesday": "9:00-17:00"}',
+                    bankAccount: "1234567890",
+                    isApproved: 1,
+                    profilePicture: "https://placehold.co/200x200",
+                    consultingFees: 150.00,
+                },
+                {
+                    fullName: "Dr. John Smith",
+                    email: "john.smith@example.com",
+                    password: "$2b$10$O3jfFgJVuZ028Z2u.GCrk.SSpvbdzVUFc4sjI78Jzgsd.3qhyOlo.",
+                    role: "consultant",
+                    phone: "555-987-6543",
+                    bio: "Neurologist specializing in migraines",
+                    qualification: "PhD, Neurology",
+                    areasOfExpertise: "Migraines, Epilepsy",
+                    speciality: "Neurology",
+                    availability: '{"Wednesday": "10:00-18:00", "Thursday": "10:00-18:00"}',
+                    bankAccount: "0987654321",
+                    isApproved: 0,
+                    profilePicture: "https://placehold.co/200x200",
+                    consultingFees: 200.00,
+                },
+                {
+                    fullName: "Dr. Emily Chen",
+                    email: "emily.chen@example.com",
+                    password: "$2b$10$O3jfFgJVuZ028Z2u.GCrk.SSpvbdzVUFc4sjI78Jzgsd.3qhyOlo.",
+                    role: "consultant",
+                    phone: "555-555-5555",
+                    bio: "Pediatrician with a passion for child health",
+                    qualification: "MD, Pediatrics",
+                    areasOfExpertise: "Childhood illnesses, Vaccinations",
+                    speciality: "Pediatrics",
+                    availability: '{"Friday": "8:00-16:00", "Saturday": "8:00-12:00"}',
+                    bankAccount: "1122334455",
+                    isApproved: 1,
+                    profilePicture: "https://placehold.co/200x200",
+                    consultingFees: 120.00,
+                },
+                {
+                  fullName: "Admin",
+                  email: "admin@example.com",
+                  password: "$2b$10$O3jfFgJVuZ028Z2u.GCrk.SSpvbdzVUFc4sjI78Jzgsd.3qhyOlo.",
+                  role: "admin",
+                  phone: "9999999999",
+                  bio: "Admin Here",
+                  qualification: "Admin, Health Consultant",
+                  areasOfExpertise: "Management",
+                  speciality: "Management",
+                  availability: '{"Friday": "8:00-16:00", "Saturday": "8:00-12:00"}',
+                  bankAccount: "0000000000",
+                  isApproved: 1,
+                  profilePicture: "https://placehold.co/200x200",
+                  consultingFees: 120.00,
+              },
+            ];
 
-          const consultants = [
-            {
-              fullName: "Dr. Jane Doe",
-              email: "jane.doe@example.com",
-              password: "password123",
-              role: "consultant",
-              phone: "555-123-4567",
-              bio: "Experienced cardiologist",
-              qualification: "MD, Cardiology",
-              areasOfExpertise: "Heart failure, Hypertension",
-              speciality: "Cardiology",
-              availability: '{"Monday": "9:00-17:00", "Tuesday": "9:00-17:00"}',
-              bankAccount: "1234567890",
-              isApproved: 1,
-              profilePicture: "https://placehold.co/200x200",
-            },
-            {
-              fullName: "Dr. John Smith",
-              email: "john.smith@example.com",
-              password: "password456",
-              role: "consultant",
-              phone: "555-987-6543",
-              bio: "Neurologist specializing in migraines",
-              qualification: "PhD, Neurology",
-              areasOfExpertise: "Migraines, Epilepsy",
-              speciality: "Neurology",
-              availability:
-                '{"Wednesday": "10:00-18:00", "Thursday": "10:00-18:00"}',
-              bankAccount: "0987654321",
-              isApproved: 0,
-              profilePicture: "https://placehold.co/200x200",
-            },
-            {
-              fullName: "Dr. Emily Chen",
-              email: "emily.chen@example.com",
-              password: "password789",
-              role: "consultant",
-              phone: "555-555-5555",
-              bio: "Pediatrician with a passion for child health",
-              qualification: "MD, Pediatrics",
-              areasOfExpertise: "Childhood illnesses, Vaccinations",
-              speciality: "Pediatrics",
-              availability:
-                '{"Friday": "8:00-16:00", "Saturday": "8:00-12:00"}',
-              bankAccount: "1122334455",
-              isApproved: 1,
-              profilePicture: "https://placehold.co/200x200",
-            },
-          ];
+            for (const consultant of consultants) {
+                const {
+                    fullName,
+                    email,
+                    password,
+                    role,
+                    phone,
+                    bio,
+                    qualification,
+                    areasOfExpertise,
+                    speciality,
+                    availability,
+                    bankAccount,
+                    isApproved,
+                    profilePicture,
+                    consultingFees,
+                } = consultant;
 
-          consultants.forEach((consultant) => {
-            const {
-              fullName,
-              email,
-              password,
-              role,
-              phone,
-              bio,
-              qualification,
-              areasOfExpertise,
-              speciality,
-              availability,
-              bankAccount,
-              isApproved,
-              profilePicture,
-            } = consultant;
-
-            stmt.run(
-              [
-                fullName,
-                email,
-                password,
-                role,
-                phone,
-                1, // isConsultant = 1
-                bio,
-                qualification,
-                areasOfExpertise,
-                speciality,
-                availability,
-                bankAccount,
-                isApproved,
-                profilePicture,
-              ],
-              (err) => {
-                if (err) {
-                  reject(err);
-                  return;
-                }
-              }
-            );
-          });
-
-          stmt.finalize((err) => {
-            if (err) {
-              reject(err);
-              return;
+                await connection.query(
+                    `
+                    INSERT INTO users (fullName, email, password, role, phone, isConsultant, bio, qualification, areasOfExpertise, speciality, availability, bankAccount, isApproved, profilePicture, consultingFees)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    `,
+                    [
+                        fullName,
+                        email,
+                        password,
+                        role,
+                        phone,
+                        1, // isConsultant = 1
+                        bio,
+                        qualification,
+                        areasOfExpertise,
+                        speciality,
+                        availability,
+                        bankAccount,
+                        isApproved,
+                        profilePicture,
+                        consultingFees,
+                    ]
+                );
             }
-            console.log("Consultants table seeded with dummy data.");
-            resolve();
-          });
 
-          // Add the reviews table data at the end of seedConsultants()
-  db.run(`
-    INSERT INTO reviews (userId, consultantId, rating, review, bookingId) VALUES
-      (4, 6, 5, 'Excellent consultation! Highly recommended.', 1),
-      (4, 7, 4, 'Very helpful and informative session.', 2),
-      (4, 6, 3, 'Good but could be better.', 3);
-    `);
-          
+            // Add the reviews table data at the end of seedConsultants()
+            await connection.query(`
+              INSERT INTO reviews (userId, consultantId, rating, review, bookingId) VALUES
+                (4, 6, 5, 'Excellent consultation! Highly recommended.', 1),
+                (4, 7, 4, 'Very helpful and informative session.', 2),
+                (4, 6, 3, 'Good but could be better.', 3);
+            `);
+
+            console.log("Consultants table seeded with dummy data.");
         } else {
-          console.log("Consultants table already has data, skipping seeding.");
-          resolve();
+            console.log("Consultants table already has data, skipping seeding.");
         }
-      }
-    );
-  });
+        connection.release();
+
+    } catch (error) {
+        console.error('Error seeding consultants:', error.message);
+    }
 }
 
 module.exports = {
-  initializeDatabase,
-  getDb: () => db,
+    initializeDatabase,
+    getDb: () => pool,  // Return the connection pool
 };

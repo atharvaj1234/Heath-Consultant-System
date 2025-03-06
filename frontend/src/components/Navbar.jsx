@@ -41,7 +41,7 @@ const Navbar = ({ isLoggedIn, userRole, handleLogout }) => {
               <div className="flex items-center space-x-6">
                 <NavItem to="/" icon={<Home />} text="Home" location={location} />
                 <NavItem to="/aboutus" text="About Us" icon={<Info />} location={location} />
-                <NavItem to="/contactus" icon={<Phone />} text="Contact Us" location={location} />
+                {/* <NavItem to="/contactus" icon={<Phone />} text="Contact Us" location={location} /> */}
 
                 {isLoggedIn && userRole === "user" && (
                   <>
@@ -119,7 +119,7 @@ const Navbar = ({ isLoggedIn, userRole, handleLogout }) => {
         <div className="px-4 py-3 space-y-2">
           <NavItem to="/" icon={<Home />} text="Home" location={location} mobile />
           <NavItem to="/aboutus" text="About Us" location={location} mobile />
-          <NavItem to="/contactus" icon={<Phone />} text="Contact Us" location={location} mobile />
+          {/* <NavItem to="/contactus" icon={<Phone />} text="Contact Us" location={location} mobile /> */}
 
           {isLoggedIn && userRole === "user" && (
             <>

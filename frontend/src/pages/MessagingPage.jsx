@@ -42,10 +42,10 @@ const MessagingPage = () => {
         const data = await getChatRequests();
         setChatRequests(data);
         console.log(data);
-        const ic = data[0].consultantId?.toString() == userId?.toString();
+        const ic = data[0]?.consultantId?.toString() == userId?.toString();
         setIsConsutant(ic);
       } catch (error) {
-        setError("Failed to fetch chat requests.");
+        setError("");
         console.error(error);
       } finally {
         setIsLoading(false);
@@ -181,7 +181,7 @@ const MessagingPage = () => {
                             <Clock className="h-4 w-4" />
                             <span className="truncate">
                               {new Date(req.bookingDate).toLocaleDateString()} /{" "}
-                              {req.bookingTime}
+                              {req.bookingTime.split(':').slice(0, 2).join(':')}
                             </span>
                           </div>
                         </div>
@@ -199,20 +199,20 @@ const MessagingPage = () => {
                         />
                         <div className="flex flex-col overflow-hidden">
                           <span className="text-sm font-medium truncate">
-                            {req.consultantName}
+                            Dr. {req.consultantName}
                           </span>
                           <div className="flex items-center space-x-1 text-xs text-gray-500">
                             <Clock className="h-4 w-4" />
                             <span className="truncate">
                               {new Date(req.bookingDate).toLocaleDateString()} /{" "}
-                              {req.bookingTime}
+                              {req.bookingTime.split(':').slice(0, 2).join(':')}
                             </span>
                           </div>
                         </div>
                       </>
                     )}
                   </div>
-                  {req.status === "pending" && isConsultant && (
+                  {ispending && isConsultant && (
                     <div className="flex flex-row space-x-2">
                       <button
                         className="flex items-center cursor-pointer gap-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg shadow-md transition"
@@ -270,7 +270,7 @@ const MessagingPage = () => {
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={handleEnterPress}
-                    placeholder={ispending ? "Your consultant has't yet accepted your message request" : "Type your message..."}
+                    placeholder={ispending ? (isConsultant ? "Accept the message request to continue this chat":"Your consultant has't yet accepted your message request") : "Type your message..."}
                     disabled={ispending} // Properly disables the input
                     className="flex-grow border border-gray-300 rounded-full px-4 py-2 focus:ring-2 focus:ring-blue-200 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
                   />

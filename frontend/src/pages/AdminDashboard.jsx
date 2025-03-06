@@ -4,10 +4,13 @@ import {
   getAdminConsultants,
   getAdminBookings,
   approveConsultant,
+  declineConsultant,
   getHealthRecords,
   getConsultantDocuments,
   getPayments, // Import the getPayments API
 } from "../utils/api";
+import { Calendar, Eye, X, Check } from "lucide-react";
+
 import {
   User,
   Calendar as CalendarIcon,
@@ -83,7 +86,7 @@ const AdminDashboard = () => {
     // Filter unapproved consultants after initial data load
     if (consultants.length > 0) {
       setUnapprovedConsultants(
-        consultants.filter((consultant) => !consultant.isApproved)
+        consultants.filter((consultant) => (consultant.isApproved == 0))
       );
     }
   }, [consultants]); // Re-run when consultants change
@@ -104,6 +107,36 @@ const AdminDashboard = () => {
         prevConsultants.map((consultant) =>
           consultant.id === userId
             ? { ...consultant, isApproved: 1 }
+            : consultant
+        )
+      );
+      setUnapprovedConsultants((prevConsultants) =>
+        prevConsultants.filter((consultant) => consultant.id !== userId)
+      );
+    } catch (err) {
+      setError("Failed to approve consultant. Please try again.");
+      console.error("Failed to approve consultant:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeclineConsultant = async (userId) => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setError("Authentication required. Please login as an admin.");
+        return;
+      }
+
+      await declineConsultant(token, userId);
+
+      // Update the consultants state to reflect the approval
+      setConsultants((prevConsultants) =>
+        prevConsultants.map((consultant) =>
+          consultant.id === userId
+            ? { ...consultant, isApproved: 2 }
             : consultant
         )
       );
@@ -186,7 +219,7 @@ const AdminDashboard = () => {
     <div className="min-h-screen bg-gray-100 p-10">
       {healthRecords?.userId ? (
         <div
-          className="absolute top-0 bottom-0 left-0 right-0 flex justify-center items-center min-w-screen"
+          className="fixed top-0 bottom-0 left-0 right-0 flex justify-center items-center min-w-screen z-[99999]"
           style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
           onClick={() => setHealthRecords({})}
         >
@@ -331,7 +364,7 @@ const AdminDashboard = () => {
         ) : (
         healthRecords == undefined && (
           <div
-            className="absolute top-0 bottom-0 left-0 right-0 flex justify-center items-center min-w-screen"
+            className="fixed top-0 bottom-0 left-0 right-0 flex justify-center items-center min-w-screen z-[9999]"
             style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
             onClick={() => setHealthRecords({})}
           >
@@ -481,12 +514,20 @@ const AdminDashboard = () => {
                           <td className="px-5 py-3 border-b border-gray-200 text-sm">{consultant.fullName}</td>
                           <td className="px-5 py-3 border-b border-gray-200 text-sm">{consultant.email}</td>
                           <td className="px-5 py-3 border-b border-gray-200 text-sm">
+                            <div className="flex flex-row space-x-3">
                             <button
                               className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
                               onClick={() => handleApproveConsultant(consultant.id)}
                             >
                               Approve
                             </button>
+                            <button
+                              className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                              onClick={() => handleDeclineConsultant(consultant.id)}
+                            >
+                              Reject
+                            </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -601,6 +642,9 @@ const AdminDashboard = () => {
                       <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs uppercase">
                         isApproved
                       </th>
+                      <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs uppercase">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -641,8 +685,16 @@ const AdminDashboard = () => {
                           </button>
                         </td>
                         <td className="px-5 py-3 border-b border-gray-200 text-sm">
-                          {consultant.isApproved ? "Yes" : "No"}
+                          {consultant.isApproved == 1 ? "Yes" : "No"}
                         </td>
+                        <td className="px-5 py-3 border-b border-gray-200 text-sm">
+                        <button
+                              className={`text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline ${consultant.isApproved == 1 ? "bg-red-500 hover:bg-red-700" : "bg-green-500 hover:bg-green-700"}`}
+                              onClick={() => consultant.isApproved == 1 ? handleDeclineConsultant(consultant.id) : handleApproveConsultant(consultant.id)}
+                            >
+                              {consultant.isApproved == 1 ? <X/> : <Check/>}
+                            </button>
+                            </td>
                       </tr>
                     ))}
                   </tbody>

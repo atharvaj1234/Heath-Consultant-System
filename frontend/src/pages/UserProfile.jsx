@@ -34,14 +34,14 @@ const UserProfile = ({ setProfilePicture: setAppProfilePicture }) => {
                 setFullName(data.fullName);
                 setEmail(data.email);
                 setIsConsultant(data.isConsultant === 1);
-                setBloodGroup(data.bloodGroup || '');
-                setMedicalHistory(data.medicalHistory || '');
-                setCurrentPrescriptions(data.currentPrescriptions || '');
+                setBloodGroup(data.bloodGroup);
+                setMedicalHistory(data.medicalHistory);
+                setCurrentPrescriptions(data.currentPrescriptions);
                 setAreasOfExpertise(data.areasOfExpertise)
-                setPhone(data.phone || '');
-                setEmail(data.email || '');
-                setProfilePicture(data.profilePicture || "https://placehold.co/200x200"); // Added placeholder
-                setAppProfilePicture(data.profilePicture || "https://placehold.co/200x200");  // Added placeholder
+                setPhone(data.phone);
+                setEmail(data.email);
+                setProfilePicture(data.profilePicture); // Added placeholder
+                setAppProfilePicture(data.profilePicture);  // Added placeholder
 
             } catch (err) {
                 setError('Failed to retrieve profile. Please try again.');

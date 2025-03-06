@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { getConsultantProfile, updateConsultantProfile } from '../utils/api';
 import { Edit, User, Calendar, GraduationCap, Briefcase, Clock, CheckCircle, XCircle } from 'lucide-react';
 
@@ -14,7 +13,6 @@ const ConsultantProfile = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [profilePicture, setProfilePicture] = useState('');
     const [name, setName] = useState('');
-    const navigate = useNavigate();
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -30,10 +28,10 @@ const ConsultantProfile = () => {
                 const data = await getConsultantProfile(token);
                 setSpecialty(data.speciality); // corrected typo
                 setQualifications(data.qualification); //corrected typo
-                setAvailability(JSON.parse(data.availability || "{}") || {});
-                setProfilePicture(data.profilePicture || "https://placehold.co/256x256");
-                setBio(data.bio || "");
-                setAreasOfExpertise(data.areasOfExpertise || "");
+                setAvailability(JSON.parse(data.availability));
+                setProfilePicture(data.profilePicture);
+                setBio(data.bio);
+                setAreasOfExpertise(data.areasOfExpertise);
                 setName(data.fullName);
 
                 // Ensure minutes are always 00 on initial load

@@ -54,6 +54,7 @@ const ConsultantDetails = () => {
             setError("");
             try {
                 const data = await getConsultantById(id);
+                console.log(data)
                 setConsultant(data);
             } catch (err) {
                 setError("Failed to retrieve consultant details. Please try again.");
@@ -272,6 +273,7 @@ const ConsultantDetails = () => {
                         {/* Reviews Section */}
                         <Grid item xs={12}>
                             <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', mb: 2 }}><Star className="mr-1 w-5 h-5" />Reviews</Typography>
+                            <div className="flex flex-col overflow-auto max-h-[300px]">
                             {consultant.reviews && consultant.reviews.length > 0 ? (
                                 consultant.reviews.map((review) => (
                                     <Box key={review.id} sx={{
@@ -291,7 +293,8 @@ const ConsultantDetails = () => {
                             ) : (
                                 <Typography>No reviews yet.</Typography>
                             )}
-
+                            </div>
+                            {userRole === 'user' && bookingId != 0 && (
                             <Button
                                 component={Link}
                                 to={`/review/${consultant.consultant.id}`}
@@ -300,7 +303,7 @@ const ConsultantDetails = () => {
                                 sx={{ mt: 2 }}
                             >
                                 Add a Review
-                            </Button>
+                            </Button>)}
                         </Grid>
 
 

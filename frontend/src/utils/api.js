@@ -432,6 +432,20 @@ export const approveConsultant = async (token, userId) => {
     }
 };
 
+export const declineConsultant = async (token, userId) => {
+    try {
+        const response = await axios.put(`${BASE_URL}/api/admin/consultants/${userId}/reject`, {}, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Failed to reject consultant:', error);
+        throw error;
+    }
+};
+
 //api.js
 export const getUserPayments = async (token) => {
     try {

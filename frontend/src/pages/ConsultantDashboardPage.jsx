@@ -187,7 +187,7 @@ const ConsultantDashboardPage = () => {
     <div className="min-h-screen bg-gray-100">
       {details && (
         <div
-          className="absolute top-0 bottom-0 left-0 right-0 flex justify-center items-center min-w-screen"
+          className="fixed top-0 bottom-0 left-0 right-0 flex justify-center items-center min-w-screen z-[9999]"
           style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
           onClick={() => setDetails(null)}
         >
