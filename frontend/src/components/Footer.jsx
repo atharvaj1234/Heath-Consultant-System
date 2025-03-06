@@ -18,7 +18,7 @@ const Footer = () => {
             <h3 className="text-lg font-semibold mb-4">Contact Us</h3>
             <p className="text-sm flex items-center mb-2">
               <Phone className="mr-2 h-4 w-4" />
-              +1 (555) 123-4567
+              +91 99999-99999
             </p>
             <p className="text-sm flex items-center mb-2">
               <Mail className="mr-2 h-4 w-4" />

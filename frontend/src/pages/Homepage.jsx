@@ -69,8 +69,8 @@ const Homepage = () => {
           {/* Testimonial 1 */}
           <div className="bg-white rounded-2xl shadow-md p-6 w-full md:w-1/3">
             <img
-              className="h-16 w-16 rounded-full mx-auto mb-4"
-              src="https://placehold.co/64x64"
+              className="h-16 w-16 rounded-full mx-auto mb-4 object-cover"
+              src="https://th.bing.com/th/id/OIP.R9hYj30Rzp2T3CukF6526AHaKS?rs=1&pid=ImgDetMain"
               alt="User Avatar"
             />
             <p className="text-gray-700 text-center mb-2">
@@ -83,15 +83,15 @@ const Homepage = () => {
           {/* Testimonial 2 */}
           <div className="bg-white rounded-2xl shadow-md p-6 w-full md:w-1/3">
             <img
-              className="h-16 w-16 rounded-full mx-auto mb-4"
-              src="https://placehold.co/64x64"
+              className="h-16 w-16 rounded-full mx-auto mb-4 object-cover"
+              src="https://1.bp.blogspot.com/-4V0EbEiLcJ0/UZSd0RjBy1I/AAAAAAAAAIU/2nlA2EW2L8Y/s1600/AMBER-HEARD-34.jpg"
               alt="User Avatar"
             />
             <p className="text-gray-700 text-center mb-2">
               "I found the perfect consultant for my needs. The process was easy and efficient."
             </p>
             <p className="text-gray-600 font-semibold text-center">
-              - Michael Davis
+              - Joulie Davis
             </p>
           </div>
         </div>

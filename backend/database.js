@@ -72,7 +72,7 @@ async function createTables() {
               fullName VARCHAR(255) NOT NULL,
               email VARCHAR(255) NOT NULL UNIQUE,
               password VARCHAR(255) NOT NULL,
-              role VARCHAR(50),
+              role VARCHAR(50) DEFAULT 'user',
               phone VARCHAR(20) NOT NULL,
               profilePicture VARCHAR(255) DEFAULT NULL,
               bloodGroup VARCHAR(10) DEFAULT NULL,
@@ -238,11 +238,11 @@ async function seedConsultants() {
         const connection = await pool.getConnection();
 
         // Check if users table is empty
-        const [rows] = await connection.query("SELECT COUNT(*) AS count FROM users WHERE isConsultant = 1");
+        const [rows] = await connection.query("SELECT COUNT(*) AS count FROM users");
         const count = rows[0].count;
 
         if (count === 0) {
-            const consultants = [
+            const users = [
                 {
                     fullName: "Dr. Jane Doe",
                     email: "jane.doe@example.com",
@@ -253,11 +253,13 @@ async function seedConsultants() {
                     qualification: "MD, Cardiology",
                     areasOfExpertise: "Heart failure, Hypertension",
                     speciality: "Cardiology",
-                    availability: '{"Monday": "9:00-17:00", "Tuesday": "9:00-17:00"}',
+                    availability: JSON.stringify({"Sunday":{"startTime":"09:00","endTime":"21:00"},"Saturday":{"startTime":"09:00","endTime":"21:00"},"Monday":{"startTime":"09:00","endTime":"21:00"},"Tuesday":{"startTime":"09:00","endTime":"21:00"},"Wednesday":{"startTime":"09:00","endTime":"21:00"}}),
                     bankAccount: "1234567890",
                     isApproved: 1,
-                    profilePicture: "https://placehold.co/200x200",
-                    consultingFees: 150.00,
+                    profilePicture: "uploads\\doc2.avif",
+                    consultingFees: 250.00,
+                    certificates: JSON.stringify([{"name":"document1","path":"uploads\\document1.png"},{"name":"document2","path":"uploads\\document2.png"}]),
+                    isConsultant: 1,
                 },
                 {
                     fullName: "Dr. John Smith",
@@ -269,11 +271,13 @@ async function seedConsultants() {
                     qualification: "PhD, Neurology",
                     areasOfExpertise: "Migraines, Epilepsy",
                     speciality: "Neurology",
-                    availability: '{"Wednesday": "10:00-18:00", "Thursday": "10:00-18:00"}',
+                    availability: JSON.stringify({"Sunday":{"startTime":"09:00","endTime":"21:00"},"Saturday":{"startTime":"09:00","endTime":"21:00"},"Monday":{"startTime":"09:00","endTime":"21:00"},"Tuesday":{"startTime":"09:00","endTime":"21:00"},"Wednesday":{"startTime":"09:00","endTime":"21:00"}}),
                     bankAccount: "0987654321",
                     isApproved: 0,
-                    profilePicture: "https://placehold.co/200x200",
-                    consultingFees: 200.00,
+                    profilePicture: "uploads\\doc1.jpeg",
+                    consultingFees: 300.00,
+                    certificates: JSON.stringify([{"name":"document1","path":"uploads\\document1.png"},{"name":"document2","path":"uploads\\document2.png"}]),
+                    isConsultant: 1,
                 },
                 {
                     fullName: "Dr. Emily Chen",
@@ -285,14 +289,16 @@ async function seedConsultants() {
                     qualification: "MD, Pediatrics",
                     areasOfExpertise: "Childhood illnesses, Vaccinations",
                     speciality: "Pediatrics",
-                    availability: '{"Friday": "8:00-16:00", "Saturday": "8:00-12:00"}',
+                    availability: JSON.stringify({"Tuesday":{"startTime":"09:00","endTime":"21:00"},"Thrusday":{"startTime":"09:00","endTime":"21:00"},"Friday":{"startTime":"09:00","endTime":"21:00"}}),
                     bankAccount: "1122334455",
                     isApproved: 1,
-                    profilePicture: "https://placehold.co/200x200",
-                    consultingFees: 120.00,
+                    profilePicture: "uploads\\doc3.avif",
+                    consultingFees: 400.00,
+                    certificates: JSON.stringify([{"name":"document1","path":"uploads\\document1.png"},{"name":"document2","path":"uploads\\document2.png"}]),
+                    isConsultant: 1,
                 },
                 {
-                  fullName: "Admin",
+                  fullName: "Admin User",
                   email: "admin@example.com",
                   password: "$2b$10$O3jfFgJVuZ028Z2u.GCrk.SSpvbdzVUFc4sjI78Jzgsd.3qhyOlo.",
                   role: "admin",
@@ -301,15 +307,71 @@ async function seedConsultants() {
                   qualification: "Admin, Health Consultant",
                   areasOfExpertise: "Management",
                   speciality: "Management",
-                  availability: '{"Friday": "8:00-16:00", "Saturday": "8:00-12:00"}',
+                  availability: JSON.stringify({"Monday":{"startTime":"09:00","endTime":"21:00"},"Wednesday":{"startTime":"09:00","endTime":"21:00"},"Friday":{"startTime":"09:00","endTime":"21:00"}}),
                   bankAccount: "0000000000",
                   isApproved: 1,
-                  profilePicture: "https://placehold.co/200x200",
+                  profilePicture: "uploads\\admin.png",
                   consultingFees: 120.00,
+                  certificates: JSON.stringify([{"name":"document1","path":"uploads\\document1.png"},{"name":"document2","path":"uploads\\document2.png"}]),
+                  isConsultant: 2,
+                },
+                {
+                  fullName: "Dr. Alice Johnson",
+                  email: "alice.j@example.com",
+                  password: "$2b$10$O3jfFgJVuZ028Z2u.GCrk.SSpvbdzVUFc4sjI78Jzgsd.3qhyOlo.",
+                  role: "consultant",
+                  phone: "8888888888",
+                  bio: "Dentist with a passion for child health",
+                  qualification: "Dentist",
+                  areasOfExpertise: "Child Dentistry",
+                  speciality: "Dentist",
+                  availability: JSON.stringify({"Thrusday":{"startTime":"09:00","endTime":"21:00"},"Friday":{"startTime":"09:00","endTime":"21:00"},"Monday":{"startTime":"09:00","endTime":"21:00"}}),
+                  bankAccount: "1212121212",
+                  isApproved: 0,
+                  profilePicture: "uploads\\doc4.avif",
+                  consultingFees: 500.00,
+                  certificates: JSON.stringify([{"name":"document1","path":"uploads\\document1.png"},{"name":"document2","path":"uploads\\document2.png"}]),
+                  isConsultant: 1,
               },
+              {
+                fullName: "Test User",
+                email: "user@example.com",
+                password: "$2b$10$O3jfFgJVuZ028Z2u.GCrk.SSpvbdzVUFc4sjI78Jzgsd.3qhyOlo.",
+                role: "user",
+                phone: "7777777777",
+                bio: "Simple User",
+                qualification: "None",
+                areasOfExpertise: "None",
+                speciality: "None",
+                availability: null,
+                bankAccount: null,
+                isApproved: 0,
+                profilePicture: "uploads\\default.jpeg",
+                consultingFees: null,
+                certificates: null,
+                isConsultant: 0,
+            },
+            {
+              fullName: "Dr. Bob Williams",
+              email: "bob.williams@example.com",
+              password: "$2b$10$O3jfFgJVuZ028Z2u.GCrk.SSpvbdzVUFc4sjI78Jzgsd.3qhyOlo.",
+              role: "consultant",
+              phone: "6666666666",
+              bio: "Dermatologist specializing in skin conditions",
+              qualification: "MD, Dermatology",
+              areasOfExpertise: "Acne, Eczema",
+              speciality: "Dermatology",
+              availability: JSON.stringify({"Monday":{"startTime":"09:00","endTime":"21:00"},"Tuesday":{"startTime":"09:00","endTime":"21:00"},"Wednesday":{"startTime":"09:00","endTime":"21:00"}}),
+              bankAccount: "3434343434",
+              isApproved: 1,
+              profilePicture: "uploads\\doc5.jpg",
+              consultingFees: 450.00,
+              certificates: JSON.stringify([{"name":"document1","path":"uploads\\document1.png"},{"name":"document2","path":"uploads\\document2.png"}]),
+              isConsultant: 1,
+          },
             ];
 
-            for (const consultant of consultants) {
+            for (const user of users) {
                 const {
                     fullName,
                     email,
@@ -325,12 +387,14 @@ async function seedConsultants() {
                     isApproved,
                     profilePicture,
                     consultingFees,
-                } = consultant;
+                    certificates,
+                    isConsultant,
+                } = user;
 
                 await connection.query(
                     `
-                    INSERT INTO users (fullName, email, password, role, phone, isConsultant, bio, qualification, areasOfExpertise, speciality, availability, bankAccount, isApproved, profilePicture, consultingFees)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO users (fullName, email, password, role, phone, isConsultant, bio, qualification, areasOfExpertise, speciality, availability, bankAccount, isApproved, profilePicture, consultingFees, certificates)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     `,
                     [
                         fullName,
@@ -338,7 +402,7 @@ async function seedConsultants() {
                         password,
                         role,
                         phone,
-                        1, // isConsultant = 1
+                        isConsultant,
                         bio,
                         qualification,
                         areasOfExpertise,
@@ -348,6 +412,7 @@ async function seedConsultants() {
                         isApproved,
                         profilePicture,
                         consultingFees,
+                        certificates,
                     ]
                 );
             }
@@ -355,9 +420,9 @@ async function seedConsultants() {
             // Add the reviews table data at the end of seedConsultants()
             await connection.query(`
               INSERT INTO reviews (userId, consultantId, rating, review, bookingId) VALUES
-                (4, 6, 5, 'Excellent consultation! Highly recommended.', 1),
-                (4, 7, 4, 'Very helpful and informative session.', 2),
-                (4, 6, 3, 'Good but could be better.', 3);
+                (6, 1, 5, 'Excellent consultation! Highly recommended.', 1),
+                (6, 2, 4, 'Very helpful and informative session.', 2),
+                (6, 1, 3, 'Good but could be better.', 3);
             `);
 
             console.log("Consultants table seeded with dummy data.");

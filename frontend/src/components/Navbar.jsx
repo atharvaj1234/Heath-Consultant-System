@@ -15,6 +15,7 @@ import {
   Search,
   Info
 } from "lucide-react";
+import logo from '../assets/logo.png'
 
 const Navbar = ({ isLoggedIn, userRole, handleLogout }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -31,7 +32,7 @@ const Navbar = ({ isLoggedIn, userRole, handleLogout }) => {
             <Link to="/" className="flex-shrink-0">
               <img
                 className="h-10 w-auto"
-                src="https://placehold.co/40x40"
+                src={logo}
                 alt="Logo"
               />
             </Link>
