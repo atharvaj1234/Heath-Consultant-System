@@ -73,7 +73,7 @@ const ConsultantDetails = () => {
                 for (let appointment of appointments) {
                     if (
                         appointment.consultantId.toString() === id &&
-                        appointment.status === "accepted" || appointment.status === "pending" 
+                        (appointment.status === "accepted" || appointment.status === "pending") 
                     ) {
                         return appointment.id;
                     }
