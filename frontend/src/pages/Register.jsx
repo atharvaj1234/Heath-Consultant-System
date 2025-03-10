@@ -88,12 +88,14 @@ const Register = () => {
     if (!formData.phone || formData.phone.trim() === "") {
       return "Phone no. is required";
     } else if (
-      !/^\+?\d{1,4}?[-.\s]?\(?\d{1,3}?\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}$/.test(
-        formData.phone
+      !/^(?:\+?[1-9]\d{0,3}[-.\s]?)?(?!0{3,})([1-9][0-9]{0,2})?[-.\s]?[1-9][0-9]{1,3}[-.\s]?[0-9]{1,4}[-.\s]?[0-9]{1,9}$/.test(
+        formData.phone.trim()
       )
     ) {
       return "Invalid phone no.";
-    }
+    } else if (/^0+$/.test(formData.phone.replace(/[-.\s]/g, ""))) {
+      return "Phone no. cannot be all zeros";
+    }    
 
     if (!formData.password || formData.password.length < 6) {
       return "Password must be at least 6 characters long";
