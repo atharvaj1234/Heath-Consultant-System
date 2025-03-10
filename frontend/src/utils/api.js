@@ -116,9 +116,9 @@ export const getBookings = async (token) => {
     }
 };
 
-export const createBooking = async (token, consultantId, date, time) => {
+export const requestApointment = async (token, consultantId, date, time) => {
     try {
-        const response = await axios.post(`${BASE_URL}/api/bookings`, { consultantId, date, time }, {
+        const response = await axios.post(`${BASE_URL}/api/booking/request`, { consultantId, date, time }, {
             headers: { Authorization: `Bearer ${token}` },
         });
         return response.data;
@@ -127,6 +127,19 @@ export const createBooking = async (token, consultantId, date, time) => {
         throw error;
     }
 };
+
+export const createBooking = async (token, paymentId) => {
+    try {
+        const response = await axios.post(`${BASE_URL}/api/booking/payment`, { paymentId }, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Failed to create booking:', error);
+        throw error;
+    }
+};
+
 
 export const getHealthRecords = async (token, userId = null) => {
     try {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getConsultantById, createBooking, getConsultantBookingsById } from '../utils/api';
+import { getConsultantById, requestApointment, getConsultantBookingsById } from '../utils/api';
 import dayjs from 'dayjs';
 import 'dayjs/locale/en';
 import { styled } from '@mui/system';
@@ -158,7 +158,7 @@ const Booking = () => {
                 return;
             }
 
-            await createBooking(token, id, selectedDate.format('YYYY-MM-DD'), time);
+            await requestApointment(token, id, selectedDate.format('YYYY-MM-DD'), time);
             setBookingSuccess(true);
             setTimeout(() => {
                 navigate('/consultationdashboard');
@@ -267,21 +267,21 @@ const Booking = () => {
                                 </Select>
                             </FormControl>
 
-                            <Typography variant="h6" gutterBottom>Payment Details</Typography>
+                            {/* <Typography variant="h6" gutterBottom>Payment Details</Typography>
 
                             <StyledTextField label="Card Number" fullWidth required sx={{ mb: 2 }} value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} />
                             <StyledTextField label="Expiry Date (MM/YY)" fullWidth required sx={{ mb: 2 }} value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
-                            <StyledTextField label="CVV" fullWidth required sx={{ mb: 2 }} value={cvv} onChange={(e) => setCvv(e.target.value)} />
+                            <StyledTextField label="CVV" fullWidth required sx={{ mb: 2 }} value={cvv} onChange={(e) => setCvv(e.target.value)} /> */}
 
                             <GradientButton type="submit" fullWidth startIcon={<CheckCircle />}>
-                                Confirm Booking
+                                Request Appointment
                             </GradientButton>
 
                             {bookingSuccess && <Alert severity="success" sx={{ mt: 2 }}>Booking Successful! Redirecting...</Alert>}
                         </form>
                     </Grid>
 
-                    {/* Billing Summary */}
+                    {/* Billing Summary
                     <Grid item xs={12} md={6}>
                         <Typography variant="h6" gutterBottom>Billing Summary</Typography>
                         <List>
@@ -302,7 +302,7 @@ const Booking = () => {
                                 <Typography sx={{ fontWeight: 'bold' }}>₹{(Number(consultant?.consultant.consultingFees) + Number(consultant?.consultant.consultingFees) * 18/100 + 25).toFixed(2)}</Typography>
                             </ListItem>
                         </List>
-                    </Grid>
+                    </Grid> */}
                 </Grid>
             </GlassCard>
         </PageContainer>

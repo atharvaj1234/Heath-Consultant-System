@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import {
   getBookings,
   getConsultantBookings,
   cancelBooking,
+  getUserPayments
 } from "../utils/api";
-import { Calendar, Clock, AlertTriangle, X } from "lucide-react";
+import { Calendar, Clock, AlertTriangle, X, CreditCard } from "lucide-react";
 
 const ConsultationDashboard = () => {
   const [upcomingConsultations, setUpcomingConsultations] = useState([]);
   const [pastConsultations, setPastConsultations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [pendingTransactions, setPendingTransactions] = useState([])
+  const navigate = useNavigate();
   const [isConsultant, setIsConsultant] = useState(
     localStorage.getItem("isConsultant") === "true"
   );
@@ -48,6 +51,27 @@ const ConsultationDashboard = () => {
 
         setUpcomingConsultations(upcoming);
         setPastConsultations(past);
+
+
+        function getAppointmentPaymentId(appointments, bid) {
+          for (let appointment of appointments) {
+            if (
+              appointment.bookingId.toString() == bid.toString() &&
+              appointment.status === "pending"
+            ) {
+              return appointment.bookingId;
+            }
+          }
+          return 0; // Return null if no matching appointment is found
+        }
+
+        data = await getUserPayments(token);
+        console.log(data)
+                const pid = upcoming.filter(
+                  (slot) => data.some(app => (app.bookingId.toString() == slot.id.toString() && app.status == "pending")))
+                  console.log(pid)
+                  setPendingTransactions(pid)
+                // setPaymentId(pid);
       } catch (err) {
         setError("Failed to retrieve consultations. Please try again.");
         setUpcomingConsultations([]);
@@ -184,8 +208,18 @@ const ConsultationDashboard = () => {
                           >
                             <X className="h-5 w-5" />
                             Cancel
-                          </button>
+                          </button> 
                         ))}
+                        { pendingTransactions.filter(app => app.id.toString() == consultation.id.toString()).length > 0 && (
+                         <button
+                            className="flex items-center gap-1 bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg shadow-md transition"
+                            onClick={() => navigate(`/consultantdetails/${consultation.consultantId}/`)
+                            }
+                          >
+                            <CreditCard className="h-5 w-5" />
+                            Make Payment
+                          </button>
+                        )}
                     </div>
                   </div>
                 </li>

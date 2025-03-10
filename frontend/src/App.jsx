@@ -99,6 +99,7 @@ function App() {
                     <Route path="/consultantsearch" element={<ConsultantSearch />} />
                     <Route path="/consultantdetails/:id" element={<ConsultantDetails />} />
                     <Route path="/booking/:id" element={<Booking />} />
+                    <Route path="/payment/:id/:pid" element={<Payment />} />
                     <Route path="/consultationdashboard" element={<ConsultationDashboard />} />
                     <Route path="/healthrecords" element={<HealthRecords />} />
                   <Route path="/messages" element={<MessagingPage/>}/>
