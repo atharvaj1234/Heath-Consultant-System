@@ -4,6 +4,7 @@ import { CreditCard, Calendar, Lock, Receipt } from "lucide-react";
 import { toast } from "react-toastify";
 import { getConsultantById, createBooking } from "../utils/api";
 import "react-toastify/dist/ReactToastify.css";
+import Swal from 'sweetalert2'
 
 const PaymentPage = () => {
     const [cardNumber, setCardNumber] = useState("");
@@ -46,19 +47,39 @@ const PaymentPage = () => {
 
         if (!cardNumber || !expiryDate || !cvv || !nameOnCard) {
             toast.error("Please fill in all fields.", { position: "top-center", autoClose: 3000 });
+            Swal.fire({
+                            icon: 'error',
+                            title: 'All fields are required...',
+                            text: 'Please fill in all fields.',
+                        })
             return;
         }
 
         if (cardNumber.length < 16) {
             toast.error("Invalid card number.", { position: "top-center", autoClose: 3000 });
+            Swal.fire({
+                icon: 'error',
+                title: 'Hmmm...',
+                text: 'Invalid card number.',
+            })
             return;
         }
         if (expiryDate.length !== 5 || !expiryDate.includes("/")) {
             toast.error("Invalid expiry date.", { position: "top-center", autoClose: 3000 });
+            Swal.fire({
+                icon: 'error',
+                title: 'Hmmm...',
+                text: 'Invalid expiry date.',
+            })
             return;
         }
         if (cvv.length < 3) {
             toast.error("Invalid CVV.", { position: "top-center", autoClose: 3000 });
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: 'Invalid CVV!',
+            })
             return;
         }
 
@@ -71,26 +92,46 @@ const PaymentPage = () => {
             try {
                 const token = localStorage.getItem("token");
                 if (!token) {
-                    toast.error('Authentication required. Please login.', { position: "top-center", autoClose: 3000 });
+                    // toast.error('Authentication required. Please login.', { position: "top-center", autoClose: 3000 });
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Oops...',
+                        text: 'Authentication required. Please login!',
+                    })
                     return;
                 }
 
                 await createBooking(token, pid);
                 setPaymentSuccess(true);
-                toast.success("Payment successful!", { position: "top-center", autoClose: 3000 });
-
-                setTimeout(() => {
-                    navigate("/consultationdashboard");
-                }, 2000);
+                // toast.success("Payment successful!", { position: "top-center", autoClose: 3000 });
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Payment Successful!',
+                    text: 'Redirecting to your dashboard...',
+                    timer: 3000,
+                    showConfirmButton: false
+                }).then(() => {
+                    navigate('/consultationdashboard');
+                });
 
             } catch (err) {
                 console.error("Booking creation failed:", err);
-                toast.error('Failed to create booking. Please try again.', { position: "top-center", autoClose: 3000 });
+                // toast.error('Failed to create booking. Please try again.', { position: "top-center", autoClose: 3000 });
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Oops...',
+                    text: 'Failed to create booking. Please try again!',
+                })
             }
 
         } catch (error) {
             console.error("Payment failed:", error);
-            toast.error("Payment failed. Please try again.", { position: "top-center", autoClose: 3000 });
+            // toast.error("Payment failed. Please try again.", { position: "top-center", autoClose: 3000 });
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: 'Payment failed. Please try again!',
+            })
         } finally {
             setProcessing(false);
         }

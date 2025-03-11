@@ -116,9 +116,9 @@ export const getBookings = async (token) => {
     }
 };
 
-export const requestApointment = async (token, consultantId, date, time) => {
+export const requestApointment = async (token, consultantId, date, time, reasonForAppointment, additionalNotes) => {
     try {
-        const response = await axios.post(`${BASE_URL}/api/booking/request`, { consultantId, date, time }, {
+        const response = await axios.post(`${BASE_URL}/api/booking/request`, { consultantId, date, time, reasonForAppointment, additionalNotes }, {
             headers: { Authorization: `Bearer ${token}` },
         });
         return response.data;

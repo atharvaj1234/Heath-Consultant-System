@@ -1336,7 +1336,6 @@ initializeDatabase()
     app.put("/api/bookings/:id/reject", authenticateToken, async (req, res) => {
       const bookingId = req.params.id;
       const pool = getDb();
-      // pass a parameter here something like rejected_from_payment_pending
 
       try {
         const connection = await pool.getConnection();
@@ -1361,7 +1360,7 @@ initializeDatabase()
 
           // Refund logic (similar to cancel route)
           const [paymentRows] = await connection.query(
-            "SELECT id, amount FROM payments WHERE bookingId = ?",
+            "SELECT id, amount FROM payments WHERE bookingId = ? AND status = 'paid'",
             [bookingId]
           );
           const payment = paymentRows[0];
@@ -1391,7 +1390,9 @@ initializeDatabase()
               refundId: refundInsertResult.insertId,
             });
           } else {
-            return res.status(404).json({ message: "Payment not found" });
+            return res.json({
+              message: "Booking rejected successfully"
+            });
           }
         } finally {
           connection.release();
@@ -1462,7 +1463,7 @@ initializeDatabase()
         }
 
         const userId = req.user.userId;
-        const { consultantId, date, time, status = "pending" } = req.body;
+        const { consultantId, date, time, reasonForAppointment, additionalNotes, status = "pending" } = req.body;
 
         // Validate that the consultantId is a valid integer
         if (isNaN(consultantId)) {
@@ -1537,8 +1538,8 @@ initializeDatabase()
               }
 
               const [insertResult] = await connection.query(
-                "INSERT INTO bookings (userId, consultantId, date, time, status) VALUES (?, ?, ?, ?, ?)",
-                [userId, consultantId, date, time, status]
+                "INSERT INTO bookings (userId, consultantId, date, time, reasonForAppointment, additionalNotes, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [userId, consultantId, date, time, reasonForAppointment, additionalNotes, status]
               );
               const bookingId = insertResult.insertId;
               const paymentDate = new Date().toISOString();

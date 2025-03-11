@@ -112,7 +112,9 @@ async function createTables() {
               consultantId INT,
               date DATE,
               time TIME,
-              status VARCHAR(50),
+              reasonForAppointment VARCHAR(255),
+              additionalNotes VARCHAR(255),
+              status VARCHAR(20),
               FOREIGN KEY (userId) REFERENCES users(id),
               FOREIGN KEY (consultantId) REFERENCES users(id)
           );
