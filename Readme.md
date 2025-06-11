@@ -87,14 +87,8 @@ The Health Consultant platform is a comprehensive online telehealth solution des
 4.  **Database Setup:**
 
     *   Ensure you have MySQL installed and running.
-    *   Configure the database connection details in the `backend/.env` file.
-    *   Run database migrations to create the necessary tables:
-
-        ```bash
-        # (Assuming you have a script for running migrations in your backend)
-        # For example, using Sequelize CLI:
-        npx sequelize db:migrate
-        ```
+    *   Configure the database connection details.
+    *   And then start the backend. The backend will automatically create the required tables and insert he dummy data for testing.
 
 ## Key API Endpoints
 
@@ -119,4 +113,4 @@ Contributions to the Health Consultant platform are welcome! Please follow these
 
 ## License
 
-This project is licensed under the [License Name] License.
+This project is licensed under the MIT License.
